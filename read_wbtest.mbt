@@ -273,3 +273,21 @@ fn refused(src : String) -> Bool {
     _ => true
   }
 }
+
+///|
+test "every refusal says where, without the caller matching all of them" {
+  let cases = [
+    "a: [1, 2", "a: !!wat 1", "a: *nope", "a: {x: 1", "%NOPE 1\n---\na: 1",
+  ]
+  for src in cases {
+    let at = try {
+      let _ = loads(src[:])
+      { at: -1, line: -1, column: -1, }
+    } catch {
+      e => e.at()
+    }
+    // A position a person can act on: a real line, a real column.
+    assert_eq(at.line >= 1, true)
+    assert_eq(at.column >= 1, true)
+  }
+}

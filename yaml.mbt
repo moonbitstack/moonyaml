@@ -211,3 +211,24 @@ fn text(src : BytesView, bom : Bool) -> String raise Refused {
 fn here(src : StringView, line : Int) -> At {
   { at: src.length(), line, column: 1, }
 }
+
+///|
+/// Where the refusal happened.
+///
+/// Every variant carries a position, so a caller that wants to report the line and
+/// column does not have to match all eleven of them to get at it.
+pub fn Refused::at(self : Refused) -> At {
+  match self {
+    Unexpected(at, _)
+    | Truncated(at)
+    | BadEscape(at)
+    | BadIndent(at)
+    | BadTag(at, _)
+    | BadAnchor(at, _)
+    | Repeated(at, _)
+    | Trailing(at)
+    | TooDeep(at)
+    | BadUtf8(at) => at
+    Exceeded(at~, ..) => at
+  }
+}
