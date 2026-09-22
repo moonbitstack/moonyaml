@@ -1,0 +1,10 @@
+// YAML 1.2.2, https://yaml.org/spec/1.2.2/ — read and written as the same `Json`
+// tree every other reader in this family produces, because JSON is a subset of
+// YAML (§1.3) and a configuration file wants to be a value, not a parse tree.
+//
+// The core schema of §10.2 resolves an untagged scalar; §10.1's `yes`/`no` are
+// YAML 1.1 and belong in a `v11` package, not here.
+import {
+  "moonbitlang/core/encoding/utf8",
+  "moonbitlang/core/double",
+}
