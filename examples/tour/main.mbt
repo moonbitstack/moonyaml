@@ -73,7 +73,7 @@ fn run() -> Unit raise {
 /// Read a document that will not load, and print why.
 fn show_refusal(
   src : String,
-  flavor? : @moonyaml.Flavor = @moonyaml.strict,
+  flavor~ : @moonyaml.Flavor = @moonyaml.strict,
 ) -> Unit {
   let one_line = src.replace_all(old="\n", new=" ⏎ ")
   let said = @moonyaml.loads(src, flavor~).stringify() catch {

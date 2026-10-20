@@ -6,7 +6,7 @@
 ///
 /// Two spaces: what Kubernetes manifests, Compose files and every configuration
 /// example in the wild use, and what a reader's eye is trained on.
-pub let indent : Int = 2
+pub let indent : Int32 = 2
 
 ///|
 /// Whether a string can be written without quotes.
@@ -75,7 +75,7 @@ fn quoted(out : StringBuilder, s : String) -> Unit {
 
 ///|
 /// A byte as two hex digits.
-fn two_hex(out : StringBuilder, c : Int) -> Unit {
+fn two_hex(out : StringBuilder, c : Int32) -> Unit {
   let digits = "0123456789abcdef"
   out.write_char(digits[(c >> 4) & 0xf].unsafe_to_char())
   out.write_char(digits[c & 0xf].unsafe_to_char())
@@ -142,7 +142,7 @@ fn literal_of(value : Json) -> String? {
 ///
 /// The chomping indicator carries the trailing breaks exactly — `-` for none, none
 /// for one, `+` for more — so what is read back is what was written.
-fn write_literal(out : StringBuilder, s : String, column : Int) -> Unit {
+fn write_literal(out : StringBuilder, s : String, column : Int32) -> Unit {
   let mut end = s.length()
   let mut trailing = 0
   while end > 0 && s[end - 1].to_int() == 0x0a {
@@ -195,7 +195,7 @@ fn write_inline(out : StringBuilder, value : Json) -> Unit {
 }
 
 ///|
-fn pad(out : StringBuilder, n : Int) -> Unit {
+fn pad(out : StringBuilder, n : Int32) -> Unit {
   for _ in 0..<n {
     out.write_char(' ')
   }
@@ -206,8 +206,8 @@ fn pad(out : StringBuilder, n : Int) -> Unit {
 fn block(
   out : StringBuilder,
   value : Json,
-  column : Int,
-  step : Int,
+  column : Int32,
+  step : Int32,
   sort : Bool,
 ) -> Unit {
   match value {
@@ -289,8 +289,8 @@ fn block(
 /// colon, and gets the indentation wrong the first time a value is a list.
 pub fn dumps(
   value : Json,
-  indent? : Int = indent,
-  sort? : Bool = false,
+  indent~ : Int32 = indent,
+  sort~ : Bool = false,
 ) -> String {
   guard indent >= 1 else {
     abort("yaml: an indent of \{indent} would not nest anything")
@@ -320,8 +320,8 @@ pub fn dumps(
 /// the form that answers a string.
 pub fn dump(
   value : Json,
-  indent? : Int = indent,
-  sort? : Bool = false,
+  indent~ : Int32 = indent,
+  sort~ : Bool = false,
 ) -> Bytes {
   @utf8.encode(dumps(value, indent~, sort~)[:])
 }
@@ -336,8 +336,8 @@ pub fn dump(
 /// documents, and appending one is appending lines. The reader accepts either.
 pub fn dumps_all(
   values : ArrayView[Json],
-  indent? : Int = indent,
-  sort? : Bool = false,
+  indent~ : Int32 = indent,
+  sort~ : Bool = false,
 ) -> String {
   let out = StringBuilder()
   for value in values {
@@ -351,8 +351,8 @@ pub fn dumps_all(
 /// The same, as UTF-8 bytes.
 pub fn dump_all(
   values : ArrayView[Json],
-  indent? : Int = indent,
-  sort? : Bool = false,
+  indent~ : Int32 = indent,
+  sort~ : Bool = false,
 ) -> Bytes {
   @utf8.encode(dumps_all(values, indent~, sort~)[:])
 }

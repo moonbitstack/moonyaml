@@ -6,19 +6,19 @@ import {
 }
 
 // Values
-pub let budget : Int
+pub let budget : Int32
 
-pub let depth : Int
+pub let depth : Int32
 
-pub fn dump(Json, indent? : Int, sort? : Bool) -> Bytes
+pub fn dump(Json, indent? : Int32, sort? : Bool) -> Bytes
 
-pub fn dump_all(ArrayView[Json], indent? : Int, sort? : Bool) -> Bytes
+pub fn dump_all(ArrayView[Json], indent? : Int32, sort? : Bool) -> Bytes
 
-pub fn dumps(Json, indent? : Int, sort? : Bool) -> String
+pub fn dumps(Json, indent? : Int32, sort? : Bool) -> String
 
-pub fn dumps_all(ArrayView[Json], indent? : Int, sort? : Bool) -> String
+pub fn dumps_all(ArrayView[Json], indent? : Int32, sort? : Bool) -> String
 
-pub let indent : Int
+pub let indent : Int32
 
 pub fn load(BytesView, flavor? : Flavor, bom? : Bool) -> Json raise Refused
 
@@ -41,7 +41,7 @@ pub(all) suberror Refused {
   Repeated(At, String)
   Trailing(At)
   TooDeep(At)
-  Exceeded(at~ : At, limit~ : Int, got~ : Int)
+  Exceeded(at~ : At, limit~ : Int32, got~ : Int32)
   BadUtf8(At)
 } derive(Eq, @debug.Debug)
 pub fn Refused::at(Self) -> At
@@ -54,9 +54,9 @@ pub impl Show for Refused
 
 // Types and methods
 pub(all) struct At {
-  at : Int
-  line : Int
-  column : Int
+  at : Int32
+  line : Int32
+  column : Int32
 } derive(Eq, @debug.Debug)
 pub fn At::equal(Self, Self) -> Bool
 pub fn At::not_equal(Self, Self) -> Bool
@@ -75,13 +75,13 @@ pub fn Duplicates::not_equal(Self, Self) -> Bool
 pub fn Duplicates::to_repr(Self) -> @debug.Repr
 
 pub(all) struct Flavor {
-  depth : Int
+  depth : Int32
   duplicates : Duplicates
   aliases : Bool
-  budget : Int
+  budget : Int32
 } derive(Eq, @debug.Debug)
 pub fn Flavor::equal(Self, Self) -> Bool
-pub fn Flavor::new(depth? : Int, duplicates? : Duplicates, aliases? : Bool, budget? : Int) -> Self
+pub fn Flavor::new(depth? : Int32, duplicates? : Duplicates, aliases? : Bool, budget? : Int32) -> Self
 pub fn Flavor::not_equal(Self, Self) -> Bool
 pub fn Flavor::to_repr(Self) -> @debug.Repr
 

@@ -8,9 +8,9 @@
 /// Every refusal carries one, because a configuration file that will not load is
 /// read by a person who needs to know which line to look at.
 pub(all) struct At {
-  at : Int
-  line : Int
-  column : Int
+  at : Int32
+  line : Int32
+  column : Int32
 } derive(Eq, Debug)
 
 ///|
@@ -44,7 +44,7 @@ pub(all) suberror Refused {
   Repeated(At, String)
   Trailing(At)
   TooDeep(At)
-  Exceeded(at~ : At, limit~ : Int, got~ : Int)
+  Exceeded(at~ : At, limit~ : Int32, got~ : Int32)
   BadUtf8(At)
 } derive(Eq, Debug)
 
@@ -101,10 +101,10 @@ pub extend Duplicates with Eq::{not_equal, equal}
 /// The preset is [`strict`]. Build another with [`Flavor::new`], or update one in
 /// place with `{ ..strict, depth: 64 }`.
 pub(all) struct Flavor {
-  depth : Int
+  depth : Int32
   duplicates : Duplicates
   aliases : Bool
-  budget : Int
+  budget : Int32
 } derive(Eq, Debug)
 
 ///|
@@ -119,7 +119,7 @@ pub extend Flavor with Eq::{not_equal, equal}
 /// 500 is what this family uses for JSON, between Jackson's 1000 and serde_json's
 /// 128, and a YAML document that nests deeper than a JSON one would is not a
 /// configuration file.
-pub let depth : Int = 500
+pub let depth : Int32 = 500
 
 ///|
 /// How many nodes the aliases in one document may expand to.
@@ -130,7 +130,7 @@ pub let depth : Int = 500
 /// here, so this takes the safe side: enough for any real document, far short of
 /// exhausting memory. `Flavor::new(budget=...)` raises it, and `aliases=false`
 /// refuses them outright.
-pub let budget : Int = 10_000_000
+pub let budget : Int32 = 10_000_000
 
 ///|
 /// The preset: refuse what is ambiguous, take the last of a repeated key, expand
@@ -140,10 +140,10 @@ pub let strict : Flavor = { depth, duplicates: Last, aliases: true, budget, }
 ///|
 /// A flavor by name, every knob with the preset's value.
 pub fn Flavor::new(
-  depth? : Int = depth,
-  duplicates? : Duplicates = Last,
-  aliases? : Bool = true,
-  budget? : Int = budget,
+  depth~ : Int32 = depth,
+  duplicates~ : Duplicates = Last,
+  aliases~ : Bool = true,
+  budget~ : Int32 = budget,
 ) -> Flavor {
   { depth, duplicates, aliases, budget, }
 }
@@ -153,7 +153,7 @@ pub fn Flavor::new(
 ///
 /// Raises [`Refused::Trailing`] if a second document follows, which is what tells a
 /// caller expecting one file's worth of configuration that it got a stream.
-pub fn loads(src : StringView, flavor? : Flavor = strict) -> Json raise Refused {
+pub fn loads(src : StringView, flavor~ : Flavor = strict) -> Json raise Refused {
   let docs = loads_all(src, flavor~)
   match docs.length() {
     0 => Json::null()
@@ -169,7 +169,7 @@ pub fn loads(src : StringView, flavor? : Flavor = strict) -> Json raise Refused 
 /// the same as one document containing nothing.
 pub fn loads_all(
   src : StringView,
-  flavor? : Flavor = strict,
+  flavor~ : Flavor = strict,
 ) -> Array[Json] raise Refused {
   Reader::new(src, flavor).stream()
 }
@@ -181,8 +181,8 @@ pub fn loads_all(
 /// of a stream and which an editor on Windows will happily write.
 pub fn load(
   src : BytesView,
-  flavor? : Flavor = strict,
-  bom? : Bool = true,
+  flavor~ : Flavor = strict,
+  bom~ : Bool = true,
 ) -> Json raise Refused {
   loads(text(src, bom), flavor~)
 }
@@ -191,8 +191,8 @@ pub fn load(
 /// Every document in `src`, decoded as UTF-8.
 pub fn load_all(
   src : BytesView,
-  flavor? : Flavor = strict,
-  bom? : Bool = true,
+  flavor~ : Flavor = strict,
+  bom~ : Bool = true,
 ) -> Array[Json] raise Refused {
   loads_all(text(src, bom), flavor~)
 }
@@ -208,7 +208,7 @@ fn text(src : BytesView, bom : Bool) -> String raise Refused {
 ///|
 /// A position at the end of `src`, for a fault that is about the stream as a whole
 /// rather than about one character in it.
-fn here(src : StringView, line : Int) -> At {
+fn here(src : StringView, line : Int32) -> At {
   { at: src.length(), line, column: 1, }
 }
 

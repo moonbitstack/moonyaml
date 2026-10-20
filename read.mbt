@@ -9,16 +9,16 @@
 /// boundaries: a reader that splits into lines first cannot express them.
 priv struct Reader {
   src : StringView
-  mut pos : Int
-  mut line : Int
+  mut pos : Int32
+  mut line : Int32
   // Offset of the first character of the current line, so a column is a subtraction.
-  mut bol : Int
+  mut bol : Int32
   flavor : Flavor
   anchors : Map[String, Json]
   // `%TAG` handle to prefix, per document (YAML 1.2.2 §6.8.2).
   handles : Map[String, String]
   // Nodes produced so far, against the alias budget.
-  mut spent : Int
+  mut spent : Int32
 }
 
 ///|
@@ -49,7 +49,7 @@ fn Reader::eof(self : Reader) -> Bool {
 
 ///|
 /// The code unit at the cursor, or `-1` at end of stream.
-fn Reader::cur(self : Reader) -> Int {
+fn Reader::cur(self : Reader) -> Int32 {
   if self.pos < self.src.length() {
     self.src[self.pos].to_int()
   } else {
@@ -59,7 +59,7 @@ fn Reader::cur(self : Reader) -> Int {
 
 ///|
 /// The code unit `k` past the cursor, or `-1`.
-fn Reader::ahead(self : Reader, k : Int) -> Int {
+fn Reader::ahead(self : Reader, k : Int32) -> Int32 {
   if self.pos + k < self.src.length() {
     self.src[self.pos + k].to_int()
   } else {
@@ -70,7 +70,7 @@ fn Reader::ahead(self : Reader, k : Int) -> Int {
 ///|
 /// The column the cursor is in, counting from zero, which is what indentation is
 /// compared against.
-fn Reader::column(self : Reader) -> Int {
+fn Reader::column(self : Reader) -> Int32 {
   self.pos - self.bol
 }
 
@@ -450,7 +450,7 @@ fn prefix_of(
 
 ///|
 /// The index of the code unit `u` in `s`, or `-1`.
-fn index_of_unit(s : String, u : Int) -> Int {
+fn index_of_unit(s : String, u : Int32) -> Int32 {
   for i = 0; i < s.length(); i = i + 1 {
     if s[i].to_int() == u {
       return i
@@ -464,7 +464,11 @@ fn index_of_unit(s : String, u : Int) -> Int {
 ///
 /// `depth` bounds nesting; a document that nests past the flavor's limit is refused
 /// rather than driving the reader's own recursion into the ground.
-fn Reader::node(self : Reader, indent : Int, depth : Int) -> Json raise Refused {
+fn Reader::node(
+  self : Reader,
+  indent : Int32,
+  depth : Int32,
+) -> Json raise Refused {
   if depth > self.flavor.depth {
     raise TooDeep(self.at())
   }
@@ -487,8 +491,8 @@ fn Reader::node(self : Reader, indent : Int, depth : Int) -> Json raise Refused 
 /// What a node is made of, once its properties are off.
 fn Reader::body(
   self : Reader,
-  indent : Int,
-  depth : Int,
+  indent : Int32,
+  depth : Int32,
   tag : String?,
 ) -> Json raise Refused {
   match self.cur() {
@@ -575,7 +579,7 @@ fn Reader::spend(self : Reader, at : At) -> Unit raise Refused {
 
 ///|
 /// How many nodes a value holds, counting itself.
-fn weight(v : Json) -> Int {
+fn weight(v : Json) -> Int32 {
   match v {
     Array(items) => {
       let mut n = 1
@@ -601,8 +605,8 @@ fn weight(v : Json) -> Int {
 /// A block sequence whose `-` indicators sit in column `indent` (§8.2.1).
 fn Reader::block_seq(
   self : Reader,
-  indent : Int,
-  depth : Int,
+  indent : Int32,
+  depth : Int32,
 ) -> Json raise Refused {
   if depth > self.flavor.depth {
     raise TooDeep(self.at())
@@ -642,8 +646,8 @@ fn Reader::block_seq(
 /// A block mapping whose keys sit in column `indent` (§8.2.2).
 fn Reader::block_map(
   self : Reader,
-  indent : Int,
-  depth : Int,
+  indent : Int32,
+  depth : Int32,
 ) -> Json raise Refused {
   if depth > self.flavor.depth {
     raise TooDeep(self.at())
@@ -743,7 +747,7 @@ fn Reader::printable(self : Reader) -> Char {
 
 ///|
 /// A flow sequence `[a, b, c]` (§7.4.1), which may span lines.
-fn Reader::flow_seq(self : Reader, depth : Int) -> Json raise Refused {
+fn Reader::flow_seq(self : Reader, depth : Int32) -> Json raise Refused {
   if depth > self.flavor.depth {
     raise TooDeep(self.at())
   }
@@ -775,7 +779,7 @@ fn Reader::flow_seq(self : Reader, depth : Int) -> Json raise Refused {
 
 ///|
 /// A flow mapping `{a: 1, b: 2}` (§7.4.2), which may span lines.
-fn Reader::flow_map(self : Reader, depth : Int) -> Json raise Refused {
+fn Reader::flow_map(self : Reader, depth : Int32) -> Json raise Refused {
   if depth > self.flavor.depth {
     raise TooDeep(self.at())
   }
@@ -831,7 +835,7 @@ fn Reader::flow_map(self : Reader, depth : Int) -> Json raise Refused {
 ///|
 /// One node inside a flow collection, where indentation carries no meaning and the
 /// terminators are the flow indicators.
-fn Reader::flow_node(self : Reader, depth : Int) -> Json raise Refused {
+fn Reader::flow_node(self : Reader, depth : Int32) -> Json raise Refused {
   if depth > self.flavor.depth {
     raise TooDeep(self.at())
   }
@@ -868,7 +872,7 @@ fn Reader::flow_node(self : Reader, depth : Int) -> Json raise Refused {
 /// is true inside a flow collection and also of a block mapping's key.
 fn Reader::scalar_text(
   self : Reader,
-  indent : Int,
+  indent : Int32,
   flow : Bool,
 ) -> (String, Bool) raise Refused {
   match self.cur() {
@@ -993,7 +997,7 @@ fn Reader::escape(
 fn Reader::hex(
   self : Reader,
   out : StringBuilder,
-  n : Int,
+  n : Int32,
   at : At,
 ) -> Unit raise Refused {
   let mut v = 0
@@ -1012,7 +1016,7 @@ fn Reader::hex(
 
 ///|
 /// A hexadecimal digit's value.
-fn nibble(c : Int) -> Int? {
+fn nibble(c : Int32) -> Int32? {
   if c >= 0x30 && c <= 0x39 {
     Some(c - 0x30)
   } else if c >= 0x61 && c <= 0x66 {
@@ -1058,7 +1062,7 @@ fn Reader::fold(self : Reader, at : At) -> String raise Refused {
 /// In block context it may run over several lines, each more indented than its
 /// parent, and those breaks fold as they do in a quoted scalar. In flow context a
 /// comma or a bracket ends it.
-fn Reader::plain(self : Reader, indent : Int, flow : Bool) -> String {
+fn Reader::plain(self : Reader, indent : Int32, flow : Bool) -> String {
   let out = StringBuilder()
   let mut first = true
   for ;; {
@@ -1138,7 +1142,7 @@ fn Reader::plain(self : Reader, indent : Int, flow : Bool) -> String {
 /// Whether the line at the cursor is a `key:` line rather than the continuation of
 /// a plain scalar, which is what stops a scalar from swallowing the rest of a
 /// mapping.
-fn Reader::opens_pair(self : Reader, indent : Int) -> Bool {
+fn Reader::opens_pair(self : Reader, indent : Int32) -> Bool {
   let save = (self.pos, self.line, self.bol)
   let mut found = false
   while !self.eof() {
@@ -1160,7 +1164,7 @@ fn Reader::opens_pair(self : Reader, indent : Int) -> Bool {
 
 ///|
 /// Whether a code unit is a space or a tab.
-fn is_blank(c : Int) -> Bool {
+fn is_blank(c : Int32) -> Bool {
   c == 0x20 || c == 0x09
 }
 
@@ -1190,7 +1194,7 @@ fn trim_unit(s : String) -> String {
 /// that trimmed lines first has already thrown away.
 fn Reader::block_scalar(
   self : Reader,
-  indent : Int,
+  indent : Int32,
   folded : Bool,
   tag : String?,
 ) -> Json raise Refused {
@@ -1312,7 +1316,7 @@ fn Reader::block_scalar(
 ///|
 /// The body with its trailing line breaks as the chomping indicator asks: `-` none,
 /// `+` all of them, and neither exactly one (§8.1.1.2).
-fn chomped(body : String, breaks : Int, chomp : Int) -> String {
+fn chomped(body : String, breaks : Int32, chomp : Int32) -> String {
   let keep = match chomp {
     -1 => 0
     1 => breaks
