@@ -385,6 +385,13 @@ pre code {
   color: var(--ink);
 }
 
+/* The output of a run, wrapped rather than scrolled: a JSON line is one line and
+ * the part past the edge is usually the part worth reading. */
+pre.wraps {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 /* A code block in the hero, with the rail behind it. */
 .figure {
   position: relative;
