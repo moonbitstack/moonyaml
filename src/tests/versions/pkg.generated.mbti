@@ -6,15 +6,36 @@ import {
 }
 
 // Values
+pub fn compare(Version) -> Report
+
 pub fn find(String) -> Version?
 
+pub fn probe((StringView) -> Array[Json] raise @moonyaml.Refused, String) -> Array[Json]?
+
 pub fn readings(StringView) -> Array[(String, Json)]
+
+pub fn row(String, Report) -> String
 
 pub let versions : Array[Version]
 
 // Errors
 
 // Types and methods
+pub(all) struct Report {
+  score : Score
+  differs : Array[String]
+  stricter : Array[String]
+  looser : Array[String]
+}
+
+pub(all) struct Score {
+  same : Int32
+  differs : Int32
+  refused : Int32
+  stricter : Int32
+  looser : Int32
+}
+
 pub struct Version {
   name : String
   spec : String

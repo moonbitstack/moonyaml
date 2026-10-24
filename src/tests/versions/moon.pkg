@@ -1,11 +1,8 @@
-// The same document read four ways. The interesting thing about a version is not
-// what it accepts on its own, but where it differs from the others — so the
-// assertions here are pairs of readings, and a change that quietly made two
-// versions agree would fail.
 import {
   "moonbitstack/moonyaml",
   "moonbitstack/moonyaml/any",
   "moonbitstack/moonyaml/strict",
+  "moonbitstack/moonyaml/tests/data",
   "moonbitstack/moonyaml/yaml10",
   "moonbitstack/moonyaml/yaml11",
 }
