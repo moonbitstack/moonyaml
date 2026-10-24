@@ -1,7 +1,7 @@
 ///|
 /// Everything moonyaml reads, in one file.
 ///
-///     moon run examples/tour
+///     moon run src/examples/tour
 #coverage.skip
 fn main {
   run() catch {
@@ -37,10 +37,11 @@ fn run() -> Unit raise {
 
   // The core schema decides what an unquoted scalar is; quoting it makes it a
   // string whatever it looks like.
+  let scalars =
+    #|[1, 1.5, 0x1f, true, ~, yes, "1"]
+    #|
   println("resolution:")
-  println(
-    "  \{@moonyaml.loads("[1, 1.5, 0x1f, true, ~, yes, \"1\"]").stringify()}",
-  )
+  println("  \{@moonyaml.loads(scalars).stringify()}")
 
   // A stream is several documents, and each is read in its own right.
   let stream =
@@ -58,8 +59,13 @@ fn run() -> Unit raise {
 
   // Ambiguity is refused with a position rather than guessed at.
   show_refusal("a: [1, 2")
-  show_refusal("a: !!nope 1")
+  show_refusal("a: *nope")
   show_refusal("a: 1\na: 2", flavor=@moonyaml.Flavor::new(duplicates=Reject))
+
+  // A tag from a vocabulary this reader does not have is not a fault: §10.4 says
+  // the node resolves as if it carried no tag, and refusing it would refuse the
+  // `!!python/object` in a file somebody else wrote.
+  println("  a: !!nope 1 => \{@moonyaml.loads("a: !!nope 1").stringify()}")
 
   // And an alias that expands past its budget is refused too, which is what
   // stops a dozen lines from becoming billions of nodes.

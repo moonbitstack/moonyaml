@@ -1,6 +1,6 @@
 // The same document, read by every version this library implements.
 //
-//     moon run examples/versions
+//     moon run src/examples/versions
 
 ///|
 #coverage.skip

@@ -1,6 +1,6 @@
 // A document read as a document: what it says, not only what it means.
 //
-//     moon run examples/document
+//     moon run src/examples/document
 
 ///|
 #coverage.skip
@@ -13,7 +13,7 @@ fn main raise {
     #|  image: nginx:1.27
     #|front:
     #|  <<: *defaults
-    #|  image: nginx:1.27-alpine   # the only difference
+    #|  image: nginx:1.27-alpine # the only difference
     #|ports: [80, 443]
     #|motd: |
     #|  one
