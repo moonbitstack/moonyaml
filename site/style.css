@@ -1,0 +1,740 @@
+/* moonyaml — the site's whole design.
+ *
+ * One accent, one rail, and a document that hangs off it: the page is laid out
+ * the way a YAML document is, with a rule down the left and the content indented
+ * past it. Light is paper and ink; dark is the same document at night.
+ */
+
+:root {
+  --paper: #fbfaf7;
+  --paper-raised: #ffffff;
+  --ink: #1b1a17;
+  --ink-soft: #55514a;
+  --ink-faint: #8a857c;
+  --rail: #e3ded3;
+  --accent: #2f5d50;
+  --accent-soft: #e7efe9;
+  --mark: #b45309;
+  --mark-soft: #fdf2e3;
+  --code-bg: #f4f1ea;
+  --rule: #e8e3d8;
+  --shadow: 0 1px 2px rgba(27, 26, 23, 0.04), 0 8px 24px -12px rgba(27, 26, 23, 0.18);
+  --serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, "Times New Roman", serif;
+  --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --mono: "JetBrains Mono", "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper: #14161a;
+    --paper-raised: #1a1d22;
+    --ink: #e9e6df;
+    --ink-soft: #b3aea4;
+    --ink-faint: #7d786e;
+    --rail: #2a2f36;
+    --accent: #7ed3b2;
+    --accent-soft: #1d2b28;
+    --mark: #e8a35c;
+    --mark-soft: #2b2419;
+    --code-bg: #1c2026;
+    --rule: #272c33;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 12px 32px -16px rgba(0, 0, 0, 0.7);
+  }
+}
+
+:root[data-theme="light"] {
+  --paper: #fbfaf7;
+  --paper-raised: #ffffff;
+  --ink: #1b1a17;
+  --ink-soft: #55514a;
+  --ink-faint: #8a857c;
+  --rail: #e3ded3;
+  --accent: #2f5d50;
+  --accent-soft: #e7efe9;
+  --mark: #b45309;
+  --mark-soft: #fdf2e3;
+  --code-bg: #f4f1ea;
+  --rule: #e8e3d8;
+  --shadow: 0 1px 2px rgba(27, 26, 23, 0.04), 0 8px 24px -12px rgba(27, 26, 23, 0.18);
+}
+
+:root[data-theme="dark"] {
+  --paper: #14161a;
+  --paper-raised: #1a1d22;
+  --ink: #e9e6df;
+  --ink-soft: #b3aea4;
+  --ink-faint: #7d786e;
+  --rail: #2a2f36;
+  --accent: #7ed3b2;
+  --accent-soft: #1d2b28;
+  --mark: #e8a35c;
+  --mark-soft: #2b2419;
+  --code-bg: #1c2026;
+  --rule: #272c33;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 12px 32px -16px rgba(0, 0, 0, 0.7);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 17px;
+  line-height: 1.65;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* -- the rail ------------------------------------------------------------- */
+
+.shell {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 0 28px;
+}
+
+.wrap {
+  max-width: 760px;
+}
+
+a {
+  color: var(--accent);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
+a:hover {
+  color: var(--mark);
+}
+
+/* -- top bar -------------------------------------------------------------- */
+
+header.top {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: color-mix(in srgb, var(--paper) 88%, transparent);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--rule);
+}
+
+header.top .shell {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  height: 62px;
+}
+
+.brand {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  font-family: var(--mono);
+  font-size: 16px;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.brand b {
+  font-weight: 650;
+}
+
+.brand span {
+  color: var(--ink-faint);
+  font-size: 13px;
+}
+
+nav.main {
+  display: flex;
+  gap: 20px;
+  margin-left: auto;
+  font-size: 14.5px;
+}
+
+nav.main a {
+  color: var(--ink-soft);
+  text-decoration: none;
+  padding: 4px 0;
+  border-bottom: 1.5px solid transparent;
+}
+
+nav.main a:hover,
+nav.main a[aria-current="page"] {
+  color: var(--ink);
+  border-bottom-color: var(--accent);
+}
+
+button.theme {
+  border: 1px solid var(--rule);
+  background: var(--paper-raised);
+  color: var(--ink-soft);
+  font: inherit;
+  font-size: 13px;
+  padding: 5px 11px;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+button.theme:hover {
+  color: var(--ink);
+  border-color: var(--ink-faint);
+}
+
+/* -- type ----------------------------------------------------------------- */
+
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--serif);
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  line-height: 1.2;
+  margin: 0;
+}
+
+h1 {
+  font-size: clamp(2.5rem, 5vw, 3.6rem);
+}
+
+h2 {
+  font-size: 1.75rem;
+  margin: 0 0 0.6rem;
+}
+
+h3 {
+  font-size: 1.2rem;
+  margin: 2.2rem 0 0.5rem;
+}
+
+p {
+  margin: 0.85rem 0;
+  color: var(--ink-soft);
+}
+
+p strong,
+li strong {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+ul,
+ol {
+  padding-left: 1.35rem;
+  color: var(--ink-soft);
+}
+
+li {
+  margin: 0.35rem 0;
+}
+
+li::marker {
+  color: var(--ink-faint);
+}
+
+hr {
+  border: 0;
+  border-top: 1px solid var(--rule);
+  margin: 3.2rem 0;
+}
+
+/* -- hero ----------------------------------------------------------------- */
+
+.hero {
+  padding: 5.5rem 0 3rem;
+  position: relative;
+}
+
+.hero .eyebrow {
+  font-family: var(--mono);
+  font-size: 12.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--mark);
+  margin: 0 0 1.1rem;
+}
+
+.hero h1 {
+  max-width: 15ch;
+}
+
+.hero h1 em {
+  font-style: normal;
+  color: var(--accent);
+}
+
+.hero .lede {
+  font-family: var(--serif);
+  font-size: 1.32rem;
+  line-height: 1.55;
+  color: var(--ink-soft);
+  max-width: 58ch;
+  margin-top: 1.4rem;
+}
+
+.hero-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+  gap: 3rem;
+  align-items: start;
+}
+
+/* A code block and its output, one above the other: the output of a real run is
+ * wider than half a page, and a clipped JSON line is the one line worth reading. */
+.stack {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1.8rem;
+  align-items: start;
+  margin: 1.6rem 0 0;
+}
+
+@media (max-width: 900px) {
+  .hero-split {
+    /* minmax(0, …) rather than 1fr: a grid item's automatic minimum is the width
+     * of the longest line of code inside it, which would push the page sideways. */
+    grid-template-columns: minmax(0, 1fr);
+    gap: 2rem;
+  }
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 2rem;
+}
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: 550;
+  text-decoration: none;
+  border: 1px solid transparent;
+}
+
+.button.primary {
+  background: var(--accent);
+  color: var(--paper);
+}
+
+:root[data-theme="dark"] .button.primary {
+  color: #0d1412;
+}
+
+.button.ghost {
+  border-color: var(--rail);
+  color: var(--ink);
+  background: var(--paper-raised);
+}
+
+.button:hover {
+  transform: translateY(-1px);
+}
+
+/* -- code ----------------------------------------------------------------- */
+
+pre,
+code {
+  font-family: var(--mono);
+  font-size: 13.5px;
+  font-variant-ligatures: none;
+}
+
+code {
+  background: var(--code-bg);
+  border: 1px solid var(--rule);
+  border-radius: 5px;
+  padding: 0.1em 0.36em;
+  font-size: 0.88em;
+  color: var(--ink);
+}
+
+pre {
+  background: var(--code-bg);
+  border: 1px solid var(--rule);
+  border-radius: 12px;
+  padding: 18px 20px;
+  overflow-x: auto;
+  max-width: 100%;
+  line-height: 1.62;
+  box-shadow: var(--shadow);
+  tab-size: 2;
+}
+
+pre code {
+  background: none;
+  border: 0;
+  padding: 0;
+  font-size: inherit;
+  color: var(--ink);
+}
+
+/* A code block in the hero, with the rail behind it. */
+.figure {
+  position: relative;
+  margin: 0;
+}
+
+.figure figcaption {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  margin-bottom: 8px;
+}
+
+pre .k {
+  color: var(--accent);
+}
+
+pre .s {
+  color: var(--mark);
+}
+
+pre .c {
+  /* Faint enough to sit behind the code, dark enough to read at 13px. */
+  color: color-mix(in srgb, var(--ink-faint) 55%, var(--ink));
+  font-style: italic;
+}
+
+pre .a {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+pre .n {
+  color: var(--ink);
+}
+
+.copy {
+  position: absolute;
+  top: 0;
+  right: 0;
+  border: 1px solid var(--rule);
+  background: var(--paper-raised);
+  color: var(--ink-faint);
+  font: inherit;
+  font-family: var(--sans);
+  font-size: 11.5px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.figure:hover .copy,
+.copy:focus-visible {
+  opacity: 1;
+}
+
+/* A finger has no hover, so the button is simply there. */
+@media (hover: none) {
+  .copy {
+    opacity: 1;
+  }
+}
+
+.copy.done {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+/* -- sections ------------------------------------------------------------- */
+
+section.block {
+  padding: 2.6rem 0;
+  border-top: 1px solid var(--rule);
+}
+
+section.block > .label {
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--mark);
+  margin-bottom: 0.7rem;
+}
+
+.cols {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 20px;
+  margin-top: 1.4rem;
+}
+
+.card {
+  background: var(--paper-raised);
+  border: 1px solid var(--rule);
+  border-radius: 12px;
+  padding: 18px 20px;
+}
+
+.card h3 {
+  margin: 0 0 0.3rem;
+  font-size: 1.05rem;
+  font-family: var(--sans);
+  font-weight: 620;
+}
+
+.card p {
+  margin: 0;
+  font-size: 14.5px;
+  line-height: 1.55;
+}
+
+.card .tag {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--accent);
+  display: block;
+  margin-bottom: 6px;
+}
+
+/* -- tables --------------------------------------------------------------- */
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1.4rem 0;
+  font-size: 14.5px;
+}
+
+/* A five-column table of numbers does not fit a phone, and shrinking it to fit
+ * makes it unreadable; it scrolls sideways instead, in its own box. */
+.table-wrap {
+  overflow-x: auto;
+  margin: 1.4rem 0;
+  border-radius: 10px;
+}
+
+.table-wrap table {
+  margin: 0;
+}
+
+th,
+td {
+  text-align: left;
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--rule);
+  vertical-align: top;
+}
+
+th {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+td.num {
+  text-align: right;
+  font-family: var(--mono);
+  font-size: 13.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+tbody tr:hover {
+  background: color-mix(in srgb, var(--accent) 5%, transparent);
+}
+
+td code {
+  white-space: nowrap;
+}
+
+/* -- docs layout ---------------------------------------------------------- */
+
+.docs {
+  display: grid;
+  grid-template-columns: 210px minmax(0, 1fr);
+  gap: 3.2rem;
+  padding: 2.6rem 0 6rem;
+  align-items: start;
+}
+
+@media (max-width: 860px) {
+  .docs {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1.6rem;
+  }
+  aside.toc {
+    position: static !important;
+    border: 1px solid var(--rule);
+    border-radius: 12px;
+    padding: 14px 18px;
+  }
+}
+
+/* Neither column may be widened by a table or a line of code that scrolls
+ * inside it. */
+.docs > * {
+  min-width: 0;
+}
+
+aside.toc {
+  position: sticky;
+  top: 84px;
+  border-left: 2px solid var(--rail);
+  padding-left: 18px;
+}
+
+aside.toc h4 {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  font-weight: 500;
+  margin-bottom: 10px;
+}
+
+aside.toc a {
+  display: block;
+  font-size: 14px;
+  padding: 3px 0;
+  color: var(--ink-soft);
+  text-decoration: none;
+}
+
+aside.toc a:hover {
+  color: var(--accent);
+}
+
+.doc h2 {
+  margin-top: 3rem;
+  padding-top: 1.4rem;
+  border-top: 1px solid var(--rule);
+}
+
+/* Prose stops at a readable measure; a table may use the whole column. */
+.doc > p,
+.doc > ul,
+.doc > ol,
+.doc > pre,
+.doc > .note,
+.doc > .quiet {
+  max-width: 820px;
+}
+
+.doc h2:first-child {
+  margin-top: 0;
+  border-top: 0;
+  padding-top: 0;
+}
+
+/* -- notes ---------------------------------------------------------------- */
+
+.note {
+  border-left: 3px solid var(--mark);
+  background: var(--mark-soft);
+  border-radius: 0 8px 8px 0;
+  padding: 12px 16px;
+  margin: 1.4rem 0;
+  font-size: 14.8px;
+}
+
+.note b {
+  color: var(--ink);
+}
+
+.note p {
+  margin: 0.3rem 0;
+}
+
+.quiet {
+  border-left: 3px solid var(--rail);
+  background: var(--accent-soft);
+  border-radius: 0 8px 8px 0;
+  padding: 12px 16px;
+  margin: 1.4rem 0;
+  font-size: 14.8px;
+}
+
+/* -- footer --------------------------------------------------------------- */
+
+footer.bottom {
+  border-top: 1px solid var(--rule);
+  padding: 2.4rem 0 3.4rem;
+  font-size: 14px;
+  color: var(--ink-faint);
+}
+
+footer.bottom .shell {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px 28px;
+  align-items: baseline;
+}
+
+footer.bottom a {
+  color: var(--ink-soft);
+  text-decoration: none;
+}
+
+footer.bottom a:hover {
+  color: var(--accent);
+}
+
+footer.bottom .spacer {
+  margin-left: auto;
+}
+
+/* -- small screens -------------------------------------------------------- */
+
+@media (max-width: 620px) {
+  body {
+    font-size: 16px;
+  }
+  .shell {
+    padding: 0 18px;
+  }
+  /* Two rows rather than a page that scrolls sideways: the mark and the theme
+   * button, then the links. */
+  header.top .shell {
+    height: auto;
+    padding-top: 10px;
+    padding-bottom: 10px;
+    flex-wrap: wrap;
+    gap: 6px 16px;
+  }
+  nav.main {
+    order: 3;
+    width: 100%;
+    margin-left: 0;
+    gap: 16px;
+    font-size: 13.5px;
+  }
+  button.theme {
+    order: 2;
+    margin-left: auto;
+  }
+  .brand span {
+    display: none;
+  }
+  pre {
+    font-size: 12.5px;
+    padding: 14px;
+  }
+}

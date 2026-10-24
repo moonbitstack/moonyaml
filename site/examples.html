@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="en-IE">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Examples — moonyaml</title>
+    <meta
+      name="description"
+      content="Three runnable MoonBit programs built on moonyaml, with the output they print: a tour of everything it reads, one document read five ways, and a document round trip that keeps its comments."
+    />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⛰</text></svg>" />
+    <script>
+      // Set before the first paint, so the page never flashes the other theme.
+      (function () {
+        try {
+          var t = localStorage.getItem("theme");
+          if (t !== "dark" && t !== "light") {
+            t = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+          }
+          document.documentElement.setAttribute("data-theme", t);
+        } catch (e) {}
+      })();
+    </script>
+  </head>
+  <body>
+    <header class="top">
+      <div class="shell">
+        <a class="brand" href="index.html"><b>moonyaml</b><span>moonbitstack</span></a>
+        <nav class="main">
+          <a href="index.html">Overview</a>
+          <a href="docs.html">Guide</a>
+          <a href="examples.html" aria-current="page">Examples</a>
+          <a href="https://github.com/moonbitstack/moonyaml">GitHub</a>
+        </nav>
+        <button class="theme" id="theme" type="button" aria-label="Switch theme">theme</button>
+      </div>
+    </header>
+
+    <main class="shell">
+      <section class="hero">
+        <p class="eyebrow">examples · three programs</p>
+        <h1>Nothing here is a <em>mock-up</em>.</h1>
+        <p class="lede">
+          Three programs in <code>src/examples/</code>, each runnable with one
+          command, and the output each of them prints — captured from a real run,
+          not written by hand. If a number in this page were wrong, the program
+          next to it would disagree.
+        </p>
+        <div class="actions">
+          <a class="button primary" href="docs.html">Read the guide</a>
+          <a class="button ghost" href="#tour">Start with the tour</a>
+        </div>
+      </section>
+
+      <section class="block" id="tour">
+        <p class="label">01 · the tour</p>
+        <h2>Everything it reads, in one file.</h2>
+        <div class="wrap">
+          <p>
+            A configuration file of the shape one is actually written in: block
+            collections, a literal scalar that keeps its line breaks, an anchor
+            reused further down, a flow sequence. Then the core schema deciding
+            what an unquoted scalar is, a stream of two documents, and four
+            refusals with the position each one is at.
+          </p>
+        </div>
+        <p><code>moon run src/examples/tour</code></p>
+        <div class="stack">
+          <figure class="figure">
+            <figcaption>what it prints</figcaption>
+            <button class="copy" type="button">copy</button>
+<pre><code>read as JSON:
+  {"server":{"host":"0.0.0.0","port":12000,"motd":"welcome\nto the party\n"},"limits":{"files":1000,"bytes":1048576},"upload":{"files":1000,"bytes":1048576},"tags":["http","native"]}
+written back:
+  server:
+    host: 0.0.0.0
+    port: 12000
+    motd: |
+      welcome
+      to the party
+  limits: &amp;a0
+    files: 1000
+    bytes: 1048576
+  upload: *a0
+  tags:
+    - http
+    - native
+resolution:
+  [1,1.5,31,true,null,"yes","1"]
+stream of 2 documents:
+  {"first":1}
+  {"second":2}
+  a: [1, 2 =&gt; 1:4: ends mid-document
+  a: *nope =&gt; 1:4: no anchor named `nope`
+  a: 1 ⏎ a: 2 =&gt; 2:1: the key `a` is written twice
+  a: !!nope 1 =&gt; {"a":1}
+  a: &amp;a [x, x] ⏎ b: &amp;b [*a, *a] ⏎ c: &amp;c [*b, *b] ⏎ d: [*c, *c] ⏎  =&gt; 2:8: expands to 9 nodes, over 8</code></pre>
+          </figure>
+          <figure class="figure">
+            <figcaption>src/examples/tour/main.mbt</figcaption>
+            <button class="copy" type="button">copy</button>
+<pre><code><span class="c">///|</span>
+<span class="c">/// Everything moonyaml reads, in one file.</span>
+<span class="c">///</span>
+<span class="c">///     moon run src/examples/tour</span>
+#coverage.skip
+<span class="k">fn</span> main {
+  run() <span class="k">catch</span> {
+    e =&gt; println(<span class="s">"refused: \{e}"</span>)
+  }
+}
+
+<span class="c">///|</span>
+<span class="k">fn</span> run() -&gt; Unit <span class="k">raise</span> {
+  <span class="c">// A configuration file, of the shape one is actually written in: block</span>
+  <span class="c">// collections, a literal scalar that keeps its line breaks, and an anchor</span>
+  <span class="c">// reused further down.</span>
+  <span class="k">let</span> config =
+    #|server:
+    #|  host: <span class="n">0.0</span>.<span class="n">0.0</span>
+    #|  port: <span class="n">12000</span>
+    #|  motd: |
+    #|    welcome
+    #|    to the party
+    #|limits: &amp;shared {files: <span class="n">1000</span>, bytes: <span class="n">1048576</span>}
+    #|upload: *shared
+    #|tags: [http, native]
+    #|
+  <span class="k">let</span> tree = @moonyaml.loads(config)
+  println(<span class="s">"read as JSON:"</span>)
+  println(<span class="s">"  \{tree.stringify()}"</span>)
+  println(<span class="s">"written back:"</span>)
+  <span class="k">for</span> line <span class="k">in</span> @moonyaml.dumps(tree).split(<span class="s">"\n"</span>) {
+    <span class="k">if</span> line.length() &gt; <span class="n">0</span> {
+      println(<span class="s">"  \{line}"</span>)
+    }
+  }
+
+  <span class="c">// The core schema decides what an unquoted scalar is; quoting it makes it a</span>
+  <span class="c">// string whatever it looks like.</span>
+  <span class="k">let</span> scalars =
+    #|[<span class="n">1</span>, <span class="n">1.5</span>, 0x1f, <span class="k">true</span>, ~, yes, <span class="s">"1"</span>]
+    #|
+  println(<span class="s">"resolution:"</span>)
+  println(<span class="s">"  \{@moonyaml.loads(scalars).stringify()}"</span>)
+
+  <span class="c">// A stream is several documents, and each is read in its own right.</span>
+  <span class="k">let</span> stream =
+    #|---
+    #|first: <span class="n">1</span>
+    #|---
+    #|second: <span class="n">2</span>
+    #|...
+    #|
+  <span class="k">let</span> docs = @moonyaml.loads_all(stream)
+  println(<span class="s">"stream of \{docs.length()} documents:"</span>)
+  <span class="k">for</span> d <span class="k">in</span> docs {
+    println(<span class="s">"  \{d.stringify()}"</span>)
+  }
+
+  <span class="c">// Ambiguity is refused with a position rather than guessed at.</span>
+  show_refusal(<span class="s">"a: [1, 2"</span>)
+  show_refusal(<span class="s">"a: *nope"</span>)
+  show_refusal(<span class="s">"a: 1\na: 2"</span>, flavor=@moonyaml.Flavor::new(duplicates=Reject))
+
+  <span class="c">// A tag from a vocabulary this reader does not have is not a fault: §10.4 says</span>
+  <span class="c">// the node resolves as if it carried no tag, and refusing it would refuse the</span>
+  <span class="c">// `!!python/object` in a file somebody else wrote.</span>
+  println(<span class="s">"  a: !!nope 1 =&gt; \{@moonyaml.loads("</span>a: !!nope <span class="n">1</span><span class="s">").stringify()}"</span>)
+
+  <span class="c">// And an alias that expands past its budget is refused too, which is what</span>
+  <span class="c">// stops a dozen lines from becoming billions of nodes.</span>
+  show_refusal(
+    <span class="s">"a: &amp;a [x, x]\nb: &amp;b [*a, *a]\nc: &amp;c [*b, *b]\nd: [*c, *c]\n"</span>,
+    flavor=@moonyaml.Flavor::new(budget=<span class="n">8</span>),
+  )
+}
+
+<span class="c">///|</span>
+<span class="c">/// Read a document that will not load, and print why.</span>
+<span class="k">fn</span> show_refusal(
+  src : String,
+  flavor~ : @moonyaml.Flavor = @moonyaml.strict,
+) -&gt; Unit {
+  <span class="k">let</span> one_line = src.replace_all(old=<span class="s">"\n"</span>, new=<span class="s">" ⏎ "</span>)
+  <span class="k">let</span> said = @moonyaml.loads(src, flavor~).stringify() <span class="k">catch</span> {
+    e =&gt; e.to_string()
+  }
+  println(<span class="s">"  \{one_line} =&gt; \{said}"</span>)
+}</code></pre>
+          </figure>
+        </div>
+        <div class="wrap">
+          <p>
+            Two things to notice. <code>dumps</code> invented the anchor name
+            <code>&amp;a0</code>, because a value has no anchor names — the
+            <code>Json</code> tree only knows that <code>upload</code> and
+            <code>limits</code> are the same object. And the last line is the
+            "billion laughs" cut short: four lines of aliases that would expand to
+            sixteen nodes, refused the moment the count passes a budget of eight,
+            with the count and the limit in the message.
+          </p>
+        </div>
+      </section>
+
+      <section class="block" id="versions">
+        <p class="label">02 · the versions</p>
+        <h2>One document, read five ways.</h2>
+        <div class="wrap">
+          <p>
+            <code>yes</code> is a boolean in 1.1 and a string in 1.2.
+            <code>014</code> is octal twelve in 1.1 and decimal fourteen in 1.2.
+            <code>12:30</code> is a sexagesimal only in 1.1. The same file, five
+            readings, and not one of them is a bug:
+          </p>
+        </div>
+        <p><code>moon run src/examples/versions</code></p>
+        <div class="stack">
+          <figure class="figure">
+            <figcaption>what it prints</figcaption>
+            <button class="copy" type="button">copy</button>
+<pre><code>the document:
+  enabled: yes
+  mask: 014
+  starts: 12:30
+  when: 2001-12-15 02:59:43
+
+read as:
+  1.2.2 (core schema): {"enabled":"yes","mask":14,"starts":"12:30","when":"2001-12-15 02:59:43"}
+  1.1 (legacy types, merge key): {"enabled":true,"mask":12,"starts":750,"when":"2001-12-15 02:59:43"}
+  1.0 (1.0 types): {"enabled":true,"mask":12,"starts":750,"when":"2001-12-15 02:59:43"}
+
+and as StrictYAML, where every scalar is a string:
+  strict: {"enabled":"yes","mask":"014","starts":"12:30","when":"2001-12-15 02:59:43"}
+  strict, on flow style: refused — 1:4: flow style is not allowed here
+  strict, on an anchor: refused — 1:4: an anchor is not allowed here
+
+and by the version the document asks for:
+  any, no directive: {"enabled":"yes","mask":14,"starts":"12:30","when":"2001-12-15 02:59:43"}
+  any, %YAML 1.1: {"enabled":true,"mask":12}
+  any, %YAML 1.2: {"enabled":"yes","mask":14}</code></pre>
+          </figure>
+          <figure class="figure">
+            <figcaption>src/examples/versions/main.mbt</figcaption>
+            <button class="copy" type="button">copy</button>
+<pre><code><span class="c">// The same document, read by every version this library implements.</span>
+<span class="c">//</span>
+<span class="c">//     moon run src/examples/versions</span>
+
+<span class="c">///|</span>
+#coverage.skip
+<span class="k">fn</span> main {
+  <span class="c">// A document written for no version in particular: a configuration file with a</span>
+  <span class="c">// word, an octal and a time in it. Which of those are what they look like is</span>
+  <span class="c">// the whole of the difference between the versions.</span>
+  <span class="k">let</span> src =
+    #|enabled: yes
+    #|mask: <span class="n">014</span>
+    #|starts: <span class="n">12</span>:<span class="n">30</span>
+    #|when: <span class="n">2001</span>-<span class="n">12</span>-<span class="n">15</span> <span class="n">02</span>:<span class="n">59</span>:<span class="n">43</span>
+    #|
+
+  println(<span class="s">"the document:"</span>)
+  <span class="k">for</span> line <span class="k">in</span> src.split(<span class="s">"\n"</span>) {
+    <span class="k">if</span> line.length() &gt; <span class="n">0</span> {
+      println(<span class="s">"  "</span> + line.to_owned())
+    }
+  }
+  println(<span class="s">""</span>)
+  println(<span class="s">"read as:"</span>)
+  each(<span class="s">"1.2.2 (core schema)"</span>, src, text =&gt; @moonyaml.loads(text))
+  each(<span class="s">"1.1 (legacy types, merge key)"</span>, src, text =&gt; @yaml11.loads(text))
+  each(<span class="s">"1.0 (1.0 types)"</span>, src, text =&gt; @yaml10.loads(text))
+
+  <span class="c">// StrictYAML is not a version of YAML with different scalars: it is a language</span>
+  <span class="c">// that keeps the shape of YAML and drops everything that is ambiguous. Every</span>
+  <span class="c">// scalar it reads is a string, and flow style, anchors, aliases, tags and a key</span>
+  <span class="c">// written twice are refused.</span>
+  println(<span class="s">""</span>)
+  println(<span class="s">"and as StrictYAML, where every scalar is a string:"</span>)
+  each(<span class="s">"strict"</span>, src, text =&gt; @strict.loads(text))
+  each(<span class="s">"strict, on flow style"</span>, <span class="s">"a: [1, 2]"</span>, text =&gt; @strict.loads(text))
+  each(<span class="s">"strict, on an anchor"</span>, <span class="s">"a: &amp;x 1"</span>, text =&gt; @strict.loads(text))
+
+  <span class="c">// A stream's first document may say which version the rest are written for,</span>
+  <span class="c">// which is what `any` reads to pick a schema; without a directive it is 1.2.2.</span>
+  println(<span class="s">""</span>)
+  println(<span class="s">"and by the version the document asks for:"</span>)
+  each(<span class="s">"any, no directive"</span>, src, text =&gt; @any.loads(text))
+  each(<span class="s">"any, %YAML 1.1"</span>, <span class="s">"%YAML 1.1\n---\nenabled: yes\nmask: 014\n"</span>, text =&gt; {
+    @any.loads(text)
+  })
+  each(<span class="s">"any, %YAML 1.2"</span>, <span class="s">"%YAML 1.2\n---\nenabled: yes\nmask: 014\n"</span>, text =&gt; {
+    @any.loads(text)
+  })
+}
+
+<span class="c">///|</span>
+<span class="c">/// Read `src` one way and print what came back, or the refusal.</span>
+<span class="k">fn</span> each(
+  name : String,
+  src : String,
+  read : (StringView) -&gt; Json <span class="k">raise</span> @moonyaml.Refused,
+) -&gt; Unit {
+  <span class="k">let</span> said = read(src[:]).stringify() <span class="k">catch</span> {
+    e =&gt; <span class="s">"refused — "</span> + e.to_string()
+  }
+  println(<span class="s">"  \{name}: \{said}"</span>)
+}</code></pre>
+          </figure>
+        </div>
+        <div class="wrap">
+          <p>
+            The last three lines are <code>any</code>, which is the only reader
+            here that looks at the document to decide: <code>%YAML 1.1</code> at
+            the top makes <code>yes</code> a boolean, <code>%YAML 1.2</code>
+            makes it a string, and no directive at all means 1.2.2.
+          </p>
+        </div>
+      </section>
+
+      <section class="block" id="document">
+        <p class="label">03 · the document</p>
+        <h2>Read it, write it, and get the file back.</h2>
+        <div class="wrap">
+          <p>
+            <code>parse</code> gives a tree that keeps what the file said — the
+            comment above the document, the comment beside the image line, the
+            anchor, the alias standing in for its value, the flow style of
+            <code>ports</code>, the literal block scalar. <code>emit</code> writes
+            it back and the program compares the two strings:
+          </p>
+        </div>
+        <p><code>moon run src/examples/document</code></p>
+        <div class="stack">
+          <figure class="figure">
+            <figcaption>what it prints</figcaption>
+            <button class="copy" type="button">copy</button>
+<pre><code>the document:
+  # The deployment this file describes.
+  name: web
+  defaults: &amp;defaults
+    replicas: 3
+    image: nginx:1.27
+  front:
+    &lt;&lt;: *defaults
+    image: nginx:1.27-alpine # the only difference
+  ports: [80, 443]
+  motd: |
+    one
+    two
+
+written back: is it the same document?
+  yes, byte for byte
+
+and what it means:
+  {"name":"web","defaults":{"replicas":3,"image":"nginx:1.27"},"front":{"&lt;&lt;":{"replicas":3,"image":"nginx:1.27"},"image":"nginx:1.27-alpine"},"ports":[80,443],"motd":"one\ntwo\n"}
+
+a document built from a value, with an indent of four:
+  a: 1
+  b:
+      - x
+      - y: 2
+
+written in flow style, ten deep:
+  [1, 2, 3] </code></pre>
+          </figure>
+          <figure class="figure">
+            <figcaption>src/examples/document/main.mbt</figcaption>
+            <button class="copy" type="button">copy</button>
+<pre><code><span class="c">// A document read as a document: what it says, not only what it means.</span>
+<span class="c">//</span>
+<span class="c">//     moon run src/examples/document</span>
+
+<span class="c">///|</span>
+#coverage.skip
+<span class="k">fn</span> main <span class="k">raise</span> {
+  <span class="k">let</span> src =
+    #|# The deployment this file describes.
+    #|name: web
+    #|defaults: &amp;defaults
+    #|  replicas: <span class="n">3</span>
+    #|  image: nginx:<span class="n">1.27</span>
+    #|front:
+    #|  &lt;&lt;: *defaults
+    #|  image: nginx:<span class="n">1.27</span>-alpine # the only difference
+    #|ports: [<span class="n">80</span>, <span class="n">443</span>]
+    #|motd: |
+    #|  one
+    #|  two
+    #|
+
+  println(<span class="s">"the document:"</span>)
+  <span class="k">for</span> line <span class="k">in</span> src.split(<span class="s">"\n"</span>) {
+    <span class="k">if</span> line.length() &gt; <span class="n">0</span> {
+      println(<span class="s">"  "</span> + line.to_owned())
+    }
+  }
+
+  <span class="c">// `parse` keeps the comments, the flow style of `ports`, the anchor on</span>
+  <span class="c">// `defaults` and the alias in place of its value — everything `loads` folds</span>
+  <span class="c">// into a `Json` tree on the way to being a value.</span>
+  <span class="k">let</span> doc = @moonyaml.parse(src)
+
+  println(<span class="s">""</span>)
+  println(<span class="s">"written back: is it the same document?"</span>)
+  <span class="k">let</span> written = @moonyaml.emit(doc)
+  println(<span class="k">if</span> written == src { <span class="s">"  yes, byte for byte"</span> } <span class="k">else</span> { <span class="s">"  no:"</span> })
+  <span class="k">if</span> written != src {
+    <span class="k">for</span> line <span class="k">in</span> written.split(<span class="s">"\n"</span>) {
+      println(<span class="s">"  "</span> + line.to_owned())
+    }
+  }
+
+  <span class="c">// What it means, for a caller who wants the value: the merge key folded in, the</span>
+  <span class="c">// alias resolved, the tags gone.</span>
+  println(<span class="s">""</span>)
+  println(<span class="s">"and what it means:"</span>)
+  println(<span class="s">"  "</span> + doc.to_json().stringify())
+
+  <span class="c">// A tree built from a value is a document too, and it writes as one.</span>
+  println(<span class="s">""</span>)
+  println(<span class="s">"a document built from a value, with an indent of four:"</span>)
+  <span class="k">let</span> value = @moonyaml.loads(
+    (
+      #|a: <span class="n">1</span>
+      #|b:
+      #|  - x
+      #|  - y: <span class="n">2</span>
+      #|
+    ),
+  )
+  <span class="k">let</span> built = @moonyaml.Node::of_json(value)
+  <span class="k">for</span> line <span class="k">in</span> @moonyaml.emit(built, indent=<span class="n">4</span>).split(<span class="s">"\n"</span>) {
+    <span class="k">if</span> line.length() &gt; <span class="n">0</span> {
+      println(<span class="s">"  "</span> + line.to_owned())
+    }
+  }
+
+  <span class="c">// The writer's other knob: how far a line may run before a collection is written</span>
+  <span class="c">// as a block instead.</span>
+  println(<span class="s">""</span>)
+  println(<span class="s">"written in flow style, ten deep:"</span>)
+  <span class="k">let</span> list = @moonyaml.loads(
+    (
+      #|- <span class="n">1</span>
+      #|- <span class="n">2</span>
+      #|- <span class="n">3</span>
+      #|
+    ),
+  )
+  println(
+    <span class="s">"  "</span> +
+    @moonyaml.dumps(list, style=@moonyaml.flow).replace_all(old=<span class="s">"\n"</span>, new=<span class="s">" "</span>),
+  )
+}</code></pre>
+          </figure>
+        </div>
+        <div class="wrap">
+          <p>
+            "yes, byte for byte" is printed only when
+            <code>emit(parse(src)) == src</code>. Below it, the same document
+            through <code>to_json</code> — which is where the alias stops being an
+            alias and the merge key is folded in — then a tree built from a value
+            at <code>indent=4</code>, then the writer in flow style.
+          </p>
+        </div>
+      </section>
+
+      <section class="block">
+        <p class="label">04 · run them</p>
+        <h2>Three commands.</h2>
+        <pre><code><span class="c"># everything it reads, in one file</span>
+moon run src/examples/tour
+
+<span class="c"># one document, read five ways</span>
+moon run src/examples/versions
+
+<span class="c"># the document model, and a round trip</span>
+moon run src/examples/document</code></pre>
+        <div class="cols">
+          <div class="card">
+            <span class="tag">guide</span>
+            <h3><a href="docs.html">The guide</a></h3>
+            <p>Reading, writing, the five versions, every knob and where its default comes from.</p>
+          </div>
+          <div class="card">
+            <span class="tag">source</span>
+            <h3><a href="https://github.com/moonbitstack/moonyaml/tree/master/src/examples">src/examples</a></h3>
+            <p>The three programs above, and the tests beside them.</p>
+          </div>
+          <div class="card">
+            <span class="tag">suite</span>
+            <h3><a href="https://github.com/yaml/yaml-test-suite">the YAML Test Suite</a></h3>
+            <p>402 cases, run as every version on each pass, in CI.</p>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="bottom">
+      <div class="shell">
+        <span>moonyaml — Apache-2.0</span>
+        <a href="index.html">Overview</a>
+        <a href="docs.html">Guide</a>
+        <a href="https://github.com/moonbitstack/moonyaml">Source</a>
+        <a href="https://mooncakes.io/docs/#/moonbitstack/moonyaml/">API</a>
+        <span class="spacer">built with MoonBit</span>
+      </div>
+    </footer>
+
+    <script src="main.js"></script>
+  </body>
+</html>

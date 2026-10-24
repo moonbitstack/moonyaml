@@ -1,0 +1,64 @@
+name: Site
+
+# The guide, the examples and the homepage are plain files in `site/`, with no
+# build step: what is in the repository is what is served. Turn this on once in
+# Settings → Pages → Build and deployment → Source: GitHub Actions.
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - "site/**"
+      - ".github/workflows/site.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One deploy at a time, and a queued run is better than a cancelled one: a
+# cancelled deploy can leave the site on the previous revision.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-26.04
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: no broken relative links
+        run: |
+          python3 - <<'PY'
+          import pathlib, re, sys
+
+          site = pathlib.Path("site")
+          broken = []
+          for page in sorted(site.glob("*.html")):
+              body = page.read_text(encoding="utf-8")
+              for ref in re.findall(r'(?:href|src)="([^"#:]+)"', body):
+                  if ref.startswith(("http", "//", "data:", "mailto:")):
+                      continue
+                  if not (site / ref).exists():
+                      broken.append(f"{page.name}: {ref}")
+          if broken:
+              print("\n".join(broken))
+              sys.exit(1)
+          print("all relative links resolve")
+          PY
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+      - id: deploy
+        uses: actions/deploy-pages@v4

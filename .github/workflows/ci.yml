@@ -45,6 +45,21 @@ jobs:
       - name: moon test (all backends)
         run: moon test --target all
 
+      # The suite scores are printed by the tests themselves, so the numbers in
+      # README.md have a second author: this step lifts them into the run's
+      # summary, and the assertions behind them are what fails the build.
+      - name: suite summary
+        shell: bash
+        run: |
+          moon test --target js > "$RUNNER_TEMP/test.log" 2>&1 || true
+          {
+            echo "### moonyaml — the suite"
+            echo ""
+            echo '```'
+            grep -E '(suite\(|doc/suite)' "$RUNNER_TEMP/test.log" || echo "no suite summary in the test output"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: lint (fmt is clean)
         run: |
           moon fmt && git diff --exit-code
