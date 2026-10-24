@@ -12,4 +12,4 @@ source = "src"
 
 keywords = [ "yaml", "config", "parser", "moonbit" ]
 
-description = "moonyaml — YAML for MoonBit. Reads and writes YAML 1.2.2 into the same `Json` tree every other reader in this family produces: block and flow collections, the five block scalar forms, anchors and aliases, tags, and multi-document streams. What it does not understand it refuses rather than guesses."
+description = "moonyaml — YAML for MoonBit, in five versions and two shapes. Reads and writes YAML 1.2.2, 1.1, 1.0 and StrictYAML from one scanner: into the `Json` tree every reader in this family produces, or into a document that keeps its comments, anchors, tags and style so it can be written back. What it does not understand it refuses rather than guesses."
