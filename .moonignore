@@ -4,3 +4,9 @@
 .git/
 _build/
 target/
+
+# The site and the suite generators are for the repository, not for a caller who
+# has just added the module: `moon add` should bring the library and its docs.
+.ref/
+site/
+tools/
