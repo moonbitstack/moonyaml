@@ -46,6 +46,7 @@ pub(all) suberror Refused {
   TooDeep(At)
   Exceeded(at~ : At, limit~ : Int32, got~ : Int32)
   BadUtf8(At)
+  Disallowed(At, String)
 } derive(Eq, Debug)
 
 ///|
@@ -64,6 +65,8 @@ pub impl Show for Refused with fn output(self, logger) {
     Exceeded(at~, limit~, got~) =>
       logger.write_string("\{at}: expands to \{got} nodes, over \{limit}")
     BadUtf8(at) => logger.write_string("\{at}: not UTF-8")
+    Disallowed(at, what) =>
+      logger.write_string("\{at}: \{what} is not allowed here")
   }
 }
 
@@ -149,12 +152,64 @@ pub fn Flavor::new(
 }
 
 ///|
+/// What a YAML version does that the scanner cannot decide for it.
+///
+/// The three released versions of YAML disagree with each other — 1.1 reads
+/// `yes` as a boolean and `014` as twelve, 1.2 reads both as strings, and
+/// StrictYAML reads every scalar as a string — so a reader cannot carry one
+/// set of rules and be right about all of them. The scanner in this package is
+/// shared; what a version resolves a scalar to, and what it allows besides, is
+/// a `Schema`.
+///
+/// The one in this package is [`core`], the core schema of §10.2. The `v11`,
+/// `v10` and `strict` packages beside it are each a schema over the same
+/// scanner, which is why a version is a resolver rather than a fork of the
+/// reader.
+pub(all) struct Schema {
+  /// A scalar as the value it denotes: its text, whether it was quoted, the tag
+  /// it carried if any, and where it was.
+  resolve : (String, Bool, String?, At) -> Json raise Refused
+  /// Whether a `<<` key merges its value into the mapping around it.
+  merge : Bool
+  /// Whether a node may carry a tag.
+  tags : Bool
+  /// Whether a node may be named by an anchor and referred to by an alias.
+  anchors : Bool
+  /// Whether a collection may be written in flow style.
+  flow : Bool
+  /// The prefix a `!!` handle names when the document did not redefine it.
+  secondary : String
+  /// The prefix a `!` handle names when the document did not redefine it.
+  primary : String
+}
+
+///|
+/// The core schema of YAML 1.2.2 §10.2: what this package reads.
+pub let core : Schema = {
+  resolve: resolve_core,
+  merge: false,
+  tags: true,
+  anchors: true,
+  flow: true,
+  secondary: "tag:yaml.org,2002:",
+  primary: "!",
+}
+
+///|
 /// The one document in `src`.
 ///
 /// Raises [`Refused::Trailing`] if a second document follows, which is what tells a
 /// caller expecting one file's worth of configuration that it got a stream.
-pub fn loads(src : StringView, flavor~ : Flavor = strict) -> Json raise Refused {
-  let docs = loads_all(src, flavor~)
+///
+/// `schema` says which YAML version reads it; the default is [`core`]. A
+/// document that opens with `%YAML 1.1` is not read as 1.2 by default — pick
+/// the version, or let the `any` package pick it for you.
+pub fn loads(
+  src : StringView,
+  flavor~ : Flavor = strict,
+  schema~ : Schema = core,
+) -> Json raise Refused {
+  let docs = loads_all(src, flavor~, schema~)
   match docs.length() {
     0 => Json::null()
     1 => docs[0]
@@ -170,8 +225,9 @@ pub fn loads(src : StringView, flavor~ : Flavor = strict) -> Json raise Refused 
 pub fn loads_all(
   src : StringView,
   flavor~ : Flavor = strict,
+  schema~ : Schema = core,
 ) -> Array[Json] raise Refused {
-  Reader::new(src, flavor).stream()
+  Reader::new(src, flavor, schema).stream()
 }
 
 ///|
@@ -182,9 +238,10 @@ pub fn loads_all(
 pub fn load(
   src : BytesView,
   flavor~ : Flavor = strict,
+  schema~ : Schema = core,
   bom~ : Bool = true,
 ) -> Json raise Refused {
-  loads(text(src, bom), flavor~)
+  loads(text(src, bom), flavor~, schema~)
 }
 
 ///|
@@ -192,9 +249,10 @@ pub fn load(
 pub fn load_all(
   src : BytesView,
   flavor~ : Flavor = strict,
+  schema~ : Schema = core,
   bom~ : Bool = true,
 ) -> Array[Json] raise Refused {
-  loads_all(text(src, bom), flavor~)
+  loads_all(text(src, bom), flavor~, schema~)
 }
 
 ///|
@@ -216,7 +274,7 @@ fn here(src : StringView, line : Int32) -> At {
 /// Where the refusal happened.
 ///
 /// Every variant carries a position, so a caller that wants to report the line and
-/// column does not have to match all eleven of them to get at it.
+/// column does not have to match all twelve of them to get at it.
 pub fn Refused::at(self : Refused) -> At {
   match self {
     Unexpected(at, _)
@@ -228,7 +286,8 @@ pub fn Refused::at(self : Refused) -> At {
     | Repeated(at, _)
     | Trailing(at)
     | TooDeep(at)
-    | BadUtf8(at) => at
+    | BadUtf8(at)
+    | Disallowed(at, _) => at
     Exceeded(at~, ..) => at
   }
 }

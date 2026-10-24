@@ -14,6 +14,9 @@ priv struct Reader {
   // Offset of the first character of the current line, so a column is a subtraction.
   mut bol : Int32
   flavor : Flavor
+  // Which YAML version is reading: what a scalar resolves to, and what is
+  // allowed besides. See `Schema`.
+  schema : Schema
   anchors : Map[String, Json]
   // `%TAG` handle to prefix, per document (YAML 1.2.2 §6.8.2).
   handles : Map[String, String]
@@ -22,13 +25,14 @@ priv struct Reader {
 }
 
 ///|
-fn Reader::new(src : StringView, flavor : Flavor) -> Reader {
+fn Reader::new(src : StringView, flavor : Flavor, schema : Schema) -> Reader {
   {
     src,
     pos: 0,
     line: 1,
     bol: 0,
     flavor,
+    schema,
     anchors: Map([]),
     handles: Map([]),
     spent: 0,
@@ -331,6 +335,9 @@ fn Reader::props(self : Reader) -> Props raise Refused {
   for ;; {
     if self.cur() == 0x26 {
       let at = self.at()
+      if !self.schema.anchors {
+        raise Disallowed(at, "an anchor")
+      }
       self.bump()
       let name = self.until_anchor()
       if name.length() == 0 {
@@ -338,6 +345,10 @@ fn Reader::props(self : Reader) -> Props raise Refused {
       }
       anchor = Some(name)
     } else if self.cur() == 0x21 {
+      let at = self.at()
+      if !self.schema.tags {
+        raise Disallowed(at, "a tag")
+      }
       tag = Some(self.tag())
     } else {
       break
@@ -421,7 +432,7 @@ fn Reader::tag(self : Reader) -> String raise Refused {
   // `!!x` is the secondary handle; `!h!x` a named one; `!x` the primary.
   if body.length() > 0 && body[0].to_int() == 0x21 {
     let suffix = body[1:].to_owned()
-    return prefix_of(self.handles, "!!", "tag:yaml.org,2002:") + suffix
+    return prefix_of(self.handles, "!!", self.schema.secondary) + suffix
   }
   let bang = index_of_unit(body, 0x21)
   if bang >= 0 {
@@ -432,7 +443,7 @@ fn Reader::tag(self : Reader) -> String raise Refused {
       None => raise BadTag(at, handle)
     }
   }
-  prefix_of(self.handles, "!", "!") + body
+  prefix_of(self.handles, "!", self.schema.primary) + body
 }
 
 ///|
@@ -475,6 +486,9 @@ fn Reader::node(
   self.spend(self.at())
   self.gap()
   if self.cur() == 0x2a {
+    if !self.schema.anchors {
+      raise Disallowed(self.at(), "an alias")
+    }
     return self.refer()
   }
   let props = self.props()
@@ -488,6 +502,18 @@ fn Reader::node(
 }
 
 ///|
+/// A scalar as this version's schema says it is.
+fn Reader::resolve(
+  self : Reader,
+  text : String,
+  quoted : Bool,
+  tag : String?,
+  at : At,
+) -> Json raise Refused {
+  (self.schema.resolve)(text, quoted, tag, at)
+}
+
+///|
 /// What a node is made of, once its properties are off.
 fn Reader::body(
   self : Reader,
@@ -496,8 +522,18 @@ fn Reader::body(
   tag : String?,
 ) -> Json raise Refused {
   match self.cur() {
-    0x5b => self.flow_seq(depth)
-    0x7b => self.flow_map(depth)
+    0x5b | 0x7b => {
+      // Flow style is a YAML feature some versions do without: StrictYAML reads
+      // a bracket as a plain scalar character and nothing else.
+      if !self.schema.flow {
+        raise Disallowed(self.at(), "flow style")
+      }
+      if self.cur() == 0x5b {
+        self.flow_seq(depth)
+      } else {
+        self.flow_map(depth)
+      }
+    }
     0x7c => self.block_scalar(indent, false, tag)
     0x3e => self.block_scalar(indent, true, tag)
     _ => {
@@ -521,7 +557,7 @@ fn Reader::body(
       if self.eof() && !quoted && text.length() == 0 {
         return Json::null()
       }
-      resolve(text, quoted, tag, at)
+      self.resolve(text, quoted, tag, at)
     }
   }
 }
@@ -653,6 +689,10 @@ fn Reader::block_map(
     raise TooDeep(self.at())
   }
   let out : Map[String, Json] = Map([])
+  // What a `<<` key named, and where, held until the mapping is complete: an
+  // explicit key is written after the merge that names it and still wins over
+  // it, so the merge cannot be applied where it is read (YAML 1.1 §7.1).
+  let merges : Array[(At, Json)] = []
   for ;; {
     self.skip()
     if self.eof() || self.at_marker() || self.at_end_marker() {
@@ -662,7 +702,8 @@ fn Reader::block_map(
       break
     }
     let at = self.at()
-    let key = if self.at_explicit_key() {
+    let mut key = None
+    if self.at_explicit_key() {
       self.bump()
       self.gap()
       let k = self.node(indent, depth + 1)
@@ -671,7 +712,7 @@ fn Reader::block_map(
       if self.column() == indent && self.at_value_sep() {
         self.bump()
       }
-      key_of(k, at)
+      key = Some(key_of(k, at))
     } else {
       if self.at_item() {
         break
@@ -684,36 +725,81 @@ fn Reader::block_map(
         raise Unexpected(at, self.printable())
       }
       self.bump()
-      key_of(resolve(text, quoted, None, at), at)
-    }
-    self.gap()
-    let value = if self.spent_line() {
-      self.gap()
-      self.note()
-      let _ = self.brk()
-
-      self.skip()
-      if self.eof() || self.at_marker() || self.at_end_marker() {
-        Json::null()
-      } else if self.column() > indent {
-        self.node(indent, depth + 1)
-      } else if self.column() == indent && self.at_item() {
-        // A block sequence may sit in its parent key's own column (§8.2.1), which
-        // is how most configuration files in the wild are written.
-        self.block_seq(indent, depth + 1)
-      } else {
-        Json::null()
+      key = Some(key_of(self.resolve(text, quoted, None, at), at))
+      // A bare `<<` is the merge key in the versions that have one; in the ones
+      // that do not, it is the string it looks like.
+      if self.schema.merge && !quoted && text == "<<" {
+        merges.push((at, self.pair_value(indent, depth)))
+        continue
       }
-    } else {
-      self.node(indent, depth + 1)
     }
+    let key = key.unwrap()
+    let value = self.pair_value(indent, depth)
     match (out.get(key), self.flavor.duplicates) {
       (Some(_), First) => ()
       (Some(_), Reject) => raise Repeated(at, key)
       _ => out[key] = value
     }
   }
+  for (at, source) in merges {
+    merge_into(out, source, at)
+  }
   Json::object(out)
+}
+
+///|
+/// The value of a pair whose `:` is behind the cursor: on this line after the
+/// gap, or on the lines under it, or nothing at all.
+fn Reader::pair_value(
+  self : Reader,
+  indent : Int32,
+  depth : Int32,
+) -> Json raise Refused {
+  self.gap()
+  if self.spent_line() {
+    self.gap()
+    self.note()
+    let _ = self.brk()
+
+    self.skip()
+    if self.eof() || self.at_marker() || self.at_end_marker() {
+      Json::null()
+    } else if self.column() > indent {
+      self.node(indent, depth + 1)
+    } else if self.column() == indent && self.at_item() {
+      // A block sequence may sit in its parent key's own column (§8.2.1), which
+      // is how most configuration files in the wild are written.
+      self.block_seq(indent, depth + 1)
+    } else {
+      Json::null()
+    }
+  } else {
+    self.node(indent, depth + 1)
+  }
+}
+
+///|
+/// A merge source folded into the mapping around it (YAML 1.1 §7.1): a mapping's
+/// pairs, or a sequence of mappings taken in order. A key already in the
+/// mapping is left alone — that is what makes an explicit key win.
+fn merge_into(
+  out : Map[String, Json],
+  source : Json,
+  at : At,
+) -> Unit raise Refused {
+  match source {
+    Object(fields) =>
+      for k, v in fields {
+        if !out.contains(k) {
+          out[k] = v
+        }
+      }
+    Array(items) =>
+      for item in items {
+        merge_into(out, item, at)
+      }
+    _ => raise Unexpected(at, '?')
+  }
 }
 
 ///|
@@ -786,6 +872,7 @@ fn Reader::flow_map(self : Reader, depth : Int32) -> Json raise Refused {
   let at = self.at()
   self.bump()
   let out : Map[String, Json] = Map([])
+  let merges : Array[(At, Json)] = []
   for ;; {
     self.skip()
     if self.eof() {
@@ -795,29 +882,49 @@ fn Reader::flow_map(self : Reader, depth : Int32) -> Json raise Refused {
       self.bump()
       break
     }
-    let kat = self.at()
-    if self.at_explicit_key() {
+    // A bare `<<` is the merge key in the versions that have one; a quoted one
+    // is the string it spells.
+    if self.schema.merge && self.cur() == 0x3c && self.ahead(1) == 0x3c {
+      let mat = self.at()
       self.bump()
-      self.gap()
-    }
-    let key = key_of(self.flow_node(depth + 1), kat)
-    self.skip()
-    let value = if self.cur() == 0x3a {
       self.bump()
       self.skip()
-      if self.cur() == 0x2c || self.cur() == 0x7d {
+      if self.cur() != 0x3a {
+        raise Unexpected(self.at(), self.printable())
+      }
+      self.bump()
+      self.skip()
+      let value = if self.cur() == 0x2c || self.cur() == 0x7d {
         Json::null()
       } else {
         self.flow_node(depth + 1)
       }
+      merges.push((mat, value))
     } else {
-      // `{a, b}` is a set: keys with null values (§7.4.2).
-      Json::null()
-    }
-    match (out.get(key), self.flavor.duplicates) {
-      (Some(_), First) => ()
-      (Some(_), Reject) => raise Repeated(kat, key)
-      _ => out[key] = value
+      let kat = self.at()
+      if self.at_explicit_key() {
+        self.bump()
+        self.gap()
+      }
+      let key = key_of(self.flow_node(depth + 1), kat)
+      self.skip()
+      let value = if self.cur() == 0x3a {
+        self.bump()
+        self.skip()
+        if self.cur() == 0x2c || self.cur() == 0x7d {
+          Json::null()
+        } else {
+          self.flow_node(depth + 1)
+        }
+      } else {
+        // `{a, b}` is a set: keys with null values (§7.4.2).
+        Json::null()
+      }
+      match (out.get(key), self.flavor.duplicates) {
+        (Some(_), First) => ()
+        (Some(_), Reject) => raise Repeated(kat, key)
+        _ => out[key] = value
+      }
     }
     self.skip()
     if self.eof() {
@@ -828,6 +935,9 @@ fn Reader::flow_map(self : Reader, depth : Int32) -> Json raise Refused {
     } else if self.cur() != 0x7d {
       raise Unexpected(self.at(), self.printable())
     }
+  }
+  for (mat, source) in merges {
+    merge_into(out, source, mat)
   }
   Json::object(out)
 }
@@ -848,11 +958,21 @@ fn Reader::flow_node(self : Reader, depth : Int32) -> Json raise Refused {
   self.skip()
   let at = self.at()
   let value = match self.cur() {
-    0x5b => self.flow_seq(depth)
-    0x7b => self.flow_map(depth)
+    0x5b =>
+      if !self.schema.flow {
+        raise Disallowed(self.at(), "flow style")
+      } else {
+        self.flow_seq(depth)
+      }
+    0x7b =>
+      if !self.schema.flow {
+        raise Disallowed(self.at(), "flow style")
+      } else {
+        self.flow_map(depth)
+      }
     _ => {
       let (text, quoted) = self.scalar_text(-1, true)
-      resolve(text, quoted, props.tag, at)
+      self.resolve(text, quoted, props.tag, at)
     }
   }
   match props.anchor {
@@ -1338,7 +1458,10 @@ fn chomped(body : String, breaks : Int32, chomp : Int32) -> String {
 ///
 /// A quoted scalar is always a string: that is the whole point of quoting it, and
 /// it is what makes `version: 1.0` a number and `version: "1.0"` a string.
-fn resolve(
+///
+/// This is [`core`]'s resolver. Another version is another function with the
+/// same shape — see `Schema`.
+fn resolve_core(
   text : String,
   quoted : Bool,
   tag : String?,

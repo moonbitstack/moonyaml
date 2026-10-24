@@ -8,6 +8,8 @@ import {
 // Values
 pub let budget : Int32
 
+pub let core : Schema
+
 pub let depth : Int32
 
 pub fn dump(Json, indent? : Int32, sort? : Bool) -> Bytes
@@ -20,13 +22,13 @@ pub fn dumps_all(ArrayView[Json], indent? : Int32, sort? : Bool) -> String
 
 pub let indent : Int32
 
-pub fn load(BytesView, flavor? : Flavor, bom? : Bool) -> Json raise Refused
+pub fn load(BytesView, flavor? : Flavor, schema? : Schema, bom? : Bool) -> Json raise Refused
 
-pub fn load_all(BytesView, flavor? : Flavor, bom? : Bool) -> Array[Json] raise Refused
+pub fn load_all(BytesView, flavor? : Flavor, schema? : Schema, bom? : Bool) -> Array[Json] raise Refused
 
-pub fn loads(StringView, flavor? : Flavor) -> Json raise Refused
+pub fn loads(StringView, flavor? : Flavor, schema? : Schema) -> Json raise Refused
 
-pub fn loads_all(StringView, flavor? : Flavor) -> Array[Json] raise Refused
+pub fn loads_all(StringView, flavor? : Flavor, schema? : Schema) -> Array[Json] raise Refused
 
 pub let strict : Flavor
 
@@ -43,6 +45,7 @@ pub(all) suberror Refused {
   TooDeep(At)
   Exceeded(at~ : At, limit~ : Int32, got~ : Int32)
   BadUtf8(At)
+  Disallowed(At, String)
 } derive(Eq, @debug.Debug)
 pub fn Refused::at(Self) -> At
 pub fn Refused::equal(Self, Self) -> Bool
@@ -84,6 +87,16 @@ pub fn Flavor::equal(Self, Self) -> Bool
 pub fn Flavor::new(depth? : Int32, duplicates? : Duplicates, aliases? : Bool, budget? : Int32) -> Self
 pub fn Flavor::not_equal(Self, Self) -> Bool
 pub fn Flavor::to_repr(Self) -> @debug.Repr
+
+pub(all) struct Schema {
+  resolve : (String, Bool, String?, At) -> Json raise Refused
+  merge : Bool
+  tags : Bool
+  anchors : Bool
+  flow : Bool
+  secondary : String
+  primary : String
+}
 
 // Type aliases
 

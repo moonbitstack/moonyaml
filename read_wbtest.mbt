@@ -171,6 +171,56 @@ test "a %TAG directive redefines a handle for its document" {
 }
 
 ///|
+test "what a version allows is the schema, and this one allows all of it" {
+  // A `<<` key is the merge key in the versions that have one; the core schema
+  // does not, so here it is the string it looks like.
+  assert_eq(
+    j("base: &b {x: 1}\nderived:\n  <<: *b\n  y: 2\n"),
+    "{\"base\":{\"x\":1},\"derived\":{\"<<\":{\"x\":1},\"y\":2}}",
+  )
+  // Hand the reader a schema that merges, and the same document folds. The
+  // explicit key keeps its place and the merged one follows it, which is the
+  // order PyYAML builds the same mapping in.
+  let merging : Schema = { ..core, merge: true, }
+  assert_eq(
+    loads("base: &b {x: 1}\nderived:\n  <<: *b\n  y: 2\n"[:], schema=merging).stringify(),
+    "{\"base\":{\"x\":1},\"derived\":{\"y\":2,\"x\":1}}",
+  )
+  // An explicit key wins over the merge that names it, even written after it.
+  assert_eq(
+    loads("base: &b {x: 1}\nderived:\n  <<: *b\n  x: 9\n"[:], schema=merging).stringify(),
+    "{\"base\":{\"x\":1},\"derived\":{\"x\":9}}",
+  )
+  // A sequence of mappings merges in order, the earlier one winning: `y` comes
+  // from the first and the second only adds `z`.
+  assert_eq(
+    loads(
+      "one: &o {x: 1, y: 2}\ntwo: &t {y: 3, z: 4}\nderived:\n  <<: [*o, *t]\n"[:],
+      schema=merging,
+    ).stringify(),
+    "{\"one\":{\"x\":1,\"y\":2},\"two\":{\"y\":3,\"z\":4},\"derived\":{\"x\":1,\"y\":2,\"z\":4}}",
+  )
+  // And a version that allows none of it refuses where this one reads.
+  let plain : Schema = {
+    ..core,
+    merge: false,
+    tags: false,
+    anchors: false,
+    flow: false,
+  }
+  for src in ["a: !!str 1", "a: &x 1", "a: *x", "a: [1]"] {
+    let mut out = false
+    try {
+      let _ = loads(src[:], schema=plain)
+    } catch {
+      Disallowed(_) => out = true
+      _ => ()
+    }
+    assert_eq(out, true)
+  }
+}
+
+///|
 test "a stream is documents, and one document is not a stream" {
   assert_eq(loads_all("a: 1\n---\nb: 2\n"[:]).length(), 2)
   assert_eq(loads_all("---\na: 1\n...\n---\nb: 2\n...\n"[:]).length(), 2)
