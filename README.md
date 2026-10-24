@@ -241,6 +241,11 @@ moon run src/examples/document    # the document model, and a round trip
 The guide and the API reference are at
 [moonbitstack.github.io/moonyaml](https://moonbitstack.github.io/moonyaml/).
 
+That site is plain files in `site/` — a homepage, the guide, and the three
+programs above with the output they print — and there is no build step: what is in
+the repository is what is served. `.github/workflows/site.yml` publishes it to
+GitHub Pages on every change, after checking that no relative link in it dangles.
+
 ## Licence
 
 Apache-2.0. See [LICENSE](LICENSE).
