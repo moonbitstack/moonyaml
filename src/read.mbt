@@ -633,14 +633,19 @@ fn Reader::node(
   self.gap()
   // Where the node begins, properties included: a mapping keyed by this node
   // starts in the column the node starts in, not where its tag or anchor ended.
-  let start = (self.pos, self.line, self.bol)
-  let opened = self.column()
   if self.cur() == 0x2a {
     if !self.schema.anchors {
       raise Disallowed(self.at(), "an alias")
     }
+    // An alias may be the key of the mapping this node is — `*a : 1` — in which
+    // case the mapping starts where the alias does, not where its parent does.
+    if self.alias_line() {
+      return self.block_map(self.column(), depth)
+    }
     return self.refer()
   }
+  let start = (self.pos, self.line, self.bol)
+  let opened = self.column()
   let props = self.props(indent, dedent~)
   // A property may sit on a line of its own, but the node it belongs to still
   // has to be indented past the block that contains it (§6.9).
@@ -696,19 +701,21 @@ fn Reader::body(
   moved : Bool,
 ) -> Json raise Refused {
   match self.cur() {
-    0x2a =>
-      // An alias names a node; it is not one, so it cannot be anchored or tagged.
-      // It can still be the first key of the mapping this node is: `*a: 1`.
-      if self.key_line() {
-        return self.block_map(col, depth)
-      } else {
-        raise Unexpected(self.at(), '*')
+    0x2a => {
+      // A property on the line above binds to the mapping whose first key is the
+      // alias: `top: &a` and then `  *x : v`. A property written in front of an
+      // alias on the alias's own line is a fault, because an alias cannot be
+      // anchored or tagged (§7.1).
+      if moved && self.alias_line() {
+        return self.block_map(self.column(), depth)
       }
+      raise Unexpected(self.at(), '*')
+    }
     0x26 | 0x21 =>
       // A property that is not this node's, on a line of its own: the mapping
       // whose first key carries it is the node.
       if self.key_line() {
-        return self.block_map(col, depth)
+        return self.block_map(self.column(), depth)
       } else {
         raise Unexpected(self.at(), self.printable())
       }
@@ -789,6 +796,33 @@ fn Reader::at_explicit_key(self : Reader) -> Bool {
 /// Whether a code unit separates tokens: a blank, a break, or a flow indicator.
 fn ends_token(c : Int32) -> Bool {
   c is (0x20 | 0x09 | 0x0a | 0x0d | 0x2c | 0x5b | 0x5d | 0x7b | 0x7d | -1)
+}
+
+///|
+/// Whether an alias at the cursor is the key of a pair: `*a : 1`.
+///
+/// A name may hold a `:` of its own — `&a:b` names a node `a:b` — so the name is
+/// read first and only a `:` *after* it separates the key from its value. That is
+/// why `*a:1` is one name and `*a : 1` is a pair (§7.1).
+fn Reader::alias_line(self : Reader) -> Bool {
+  if self.cur() != 0x2a {
+    return false
+  }
+  let n = self.src.length()
+  let mut i = self.pos + 1
+  while i < n && !ends_token(self.src[i].to_int()) {
+    i = i + 1
+  }
+  // Blanks may separate the name from the colon; a break may not, because a key
+  // is one line long.
+  while i < n && (self.src[i].to_int() == 0x20 || self.src[i].to_int() == 0x09) {
+    i = i + 1
+  }
+  if !(i < n && self.src[i].to_int() == 0x3a) {
+    return false
+  }
+  let next = if i + 1 < n { self.src[i + 1].to_int() } else { -1 }
+  next is (0x20 | 0x09 | 0x0a | 0x0d | -1)
 }
 
 ///|
@@ -1284,6 +1318,7 @@ fn Reader::flow_seq(
       }
       let pair : Map[String, Json] = Map([(key_of(key, kat), value)])
       out.push(Json::object(pair))
+      self.flow_gap(indent, 0x5d)
     } else {
       let kline = self.line
       let mut entry = self.flow_node(indent, depth + 1)
@@ -1709,6 +1744,9 @@ fn nibble(c : Int32) -> Int32? {
 fn Reader::fold(self : Reader, at : At, indent : Int32) -> String raise Refused {
   let mut breaks = 0
   for ;; {
+    // A tab is separation here, not indentation: it is skipped with the blanks,
+    // which is what every reader in the field does with a document that puts one
+    // at the start of a continuation line (§6.1 says it should be refused).
     self.gap()
     if self.brk() {
       breaks = breaks + 1
@@ -1931,12 +1969,11 @@ fn trim_unit(s : String) -> String {
 /// with its line breaks intact, and it is the reason this reader works on
 /// characters: the content is defined by exact leading whitespace, which a reader
 /// that trimmed lines first has already thrown away.
-fn Reader::block_scalar(
+fn Reader::block_parts(
   self : Reader,
   indent : Int32,
   folded : Bool,
-  tag : String?,
-) -> Json raise Refused {
+) -> (String, Int32) raise Refused {
   self.bump()
   // `-` strips the trailing breaks, `+` keeps them all, neither keeps one (§8.1.1.2).
   let mut chomp = 0
@@ -2030,7 +2067,7 @@ fn Reader::block_scalar(
   }
   if width < 0 {
     // Nothing but empty lines: the scalar is however many breaks chomping keeps.
-    return Json::string(chomped("", leading, chomp))
+    return (chomped("", leading, chomp), chomp)
   }
   let out = StringBuilder()
   let mut pending = 0
@@ -2072,8 +2109,21 @@ fn Reader::block_scalar(
   }
   let body = out.to_string()
   let breaks = if body.length() == 0 { pending } else { pending + 1 }
-  let _ = tag
-  Json::string(chomped(body, breaks, chomp))
+  (chomped(body, breaks, chomp), chomp)
+}
+
+///|
+/// A block scalar as the value it is: a string, or whatever a tag in front of it
+/// says it is (§8.1).
+fn Reader::block_scalar(
+  self : Reader,
+  indent : Int32,
+  folded : Bool,
+  tag : String?,
+) -> Json raise Refused {
+  let at = self.at()
+  let (text, _) = self.block_parts(indent, folded)
+  self.resolve(text, true, tag, at)
 }
 
 ///|

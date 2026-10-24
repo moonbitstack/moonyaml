@@ -29,18 +29,13 @@ pub fn check(got : Array[Json], want : Array[String]) -> String? {
 }
 
 ///|
-/// The cases this reader is known to answer differently, each with the reason it
-/// does. Kept in step with the run: a new entry here is a decision, and the test
-/// fails when the run disagrees with it in either direction.
+/// The cases this reader answers differently, each by the suite's own id and with
+/// the reason it does. Kept in step with the run: a new entry here is a decision,
+/// and the test fails when the run disagrees with it in either direction.
 ///
-/// Every entry is a place where the suite's reading of §7, §8 or §9 is finer than
-/// this reader's. The README lists them by category, and the number that matters —
-/// how many cases are read as the suite says — is printed by the test.
+/// The id is the file the case came from — `4ABK` — because a name is not unique
+/// in the suite: two cases may share one and mean two different documents.
 pub let diverged : Array[(String, String)] = [
-  ("Spec Example 7.20. Single Pair Explicit Entry", "refused"),
-  ("Tabs in various contexts", "read a document the suite says must be refused"),
-  (
-    "Tabs that look like indentation", "read a document the suite says must be refused",
-  ),
-  ("Whitespace around colon in mappings", "refused"),
+  ("DK95/2", "read a document the suite says must be refused"),
+  ("Y79Y/4", "read a document the suite says must be refused"),
 ]

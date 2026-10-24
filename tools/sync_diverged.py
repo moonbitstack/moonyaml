@@ -49,11 +49,12 @@ def moon() -> str:
         return found
     raise SystemExit("moon is not installed, or not on PATH")
 
-# What `check` and the harness print after a name. Keeping the vocabulary here
-# means a name that happens to contain a colon is not mistaken for the split.
+# What a harness prints after a case's id. Keeping the vocabulary here means a
+# name that happens to contain a colon is not mistaken for the split.
 REASONS = re.compile(
-    r"^(?P<name>.+?): (?P<why>refused|read a document the suite says must be refused|"
-    r"\d+ documents?, expected \d+|\{.*\} is not \{.*\}|\[.*\] is not \[.*\])$"
+    r"^(?P<id>\S+?): (?P<why>refused|read a document the suite says must be refused|"
+    r"\d+ documents?, expected \d+|\{.*\} is not \{.*\}|\[.*\] is not \[.*\])"
+    r"  \(.*\)$"
 )
 
 ARRAY = re.compile(r"pub let diverged : Array\[\(String, String\)\] = \[\n(.*?)\n\]", re.S)
@@ -85,7 +86,7 @@ def run(package: str) -> list[tuple[str, str]]:
         match = REASONS.match(line[2:])
         if match is None:
             continue
-        seen.append((match.group("name"), match.group("why")))
+        seen.append((match.group("id"), match.group("why")))
     return seen
 
 
@@ -109,7 +110,7 @@ def quote(text: str) -> str:
 
 def rewrite(source: Path, seen: list[tuple[str, str]]) -> bool:
     text = source.read_text(encoding="utf-8")
-    body = "\n".join(f"  ({quote(name)}, {quote(why)})," for name, why in seen)
+    body = "\n".join(f"  ({quote(case_id)}, {quote(why)})," for case_id, why in seen)
     replaced, count = ARRAY.subn(
         lambda _: f"pub let diverged : Array[(String, String)] = [\n{body}\n]",
         text,

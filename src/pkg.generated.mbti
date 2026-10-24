@@ -31,6 +31,8 @@ pub fn[T : ToJson] dumps_of(T, style? : Style, indent? : Int32, sort? : Bool) ->
 
 pub fn[T : ToJson] dumps_of_all(ArrayView[T], style? : Style, indent? : Int32, sort? : Bool) -> String
 
+pub fn emit(Node, indent? : Int32, from? : Int32) -> String
+
 pub let flow : Style
 
 pub let indent : Int32
@@ -48,6 +50,10 @@ pub fn loads(StringView, flavor? : Flavor, schema? : Schema) -> Json raise Refus
 pub fn loads_all(StringView, flavor? : Flavor, schema? : Schema) -> Array[Json] raise Refused
 
 pub fn[T : @json.FromJson] loads_as(StringView, flavor? : Flavor, schema? : Schema) -> T raise Malformed
+
+pub fn parse(StringView, flavor? : Flavor, schema? : Schema) -> Node raise Refused
+
+pub fn parse_all(StringView, flavor? : Flavor, schema? : Schema) -> Array[Node] raise Refused
 
 pub fn[T : @json.FromJson + ToJson] round_trip(StringView, adjust? : (T) -> Unit, flavor? : Flavor, schema? : Schema) -> String raise Malformed
 
@@ -122,6 +128,16 @@ pub fn Flavor::new(depth? : Int32, duplicates? : Duplicates, aliases? : Bool, bu
 pub fn Flavor::not_equal(Self, Self) -> Bool
 pub fn Flavor::to_repr(Self) -> @debug.Repr
 
+pub(all) enum Kind {
+  Null
+  Bool(Bool)
+  Number(Double)
+  Str(String)
+  Sequence(Array[Node])
+  Mapping(Array[(Node, Node)])
+  Alias(String)
+}
+
 pub(all) enum Layout {
   Block
   Flow
@@ -130,6 +146,29 @@ pub(all) enum Layout {
 pub fn Layout::equal(Self, Self) -> Bool
 pub fn Layout::not_equal(Self, Self) -> Bool
 pub fn Layout::to_repr(Self) -> @debug.Repr
+
+pub(all) struct Node {
+  kind : Kind
+  text : String
+  style : ScalarStyle
+  flow : Bool
+  anchor : String?
+  tag : String?
+  before : Array[String]
+  after : String?
+}
+pub fn Node::anchored(Self, String) -> Self
+pub fn Node::commented(Self, before~ : Array[String], after~ : String) -> Self
+pub fn Node::in_flow(Self, Bool) -> Self
+pub fn Node::map(Array[(Self, Self)]) -> Self
+pub fn Node::of_json(Json) -> Self
+pub fn Node::of_kind(Kind, String) -> Self
+pub fn Node::same(Self, Self) -> Bool
+pub fn Node::scalar(String) -> Self
+pub fn Node::seq(Array[Self]) -> Self
+pub fn Node::styled(Self, ScalarStyle) -> Self
+pub fn Node::tagged(Self, String) -> Self
+pub fn Node::to_json(Self) -> Json
 
 pub(all) enum Quotes {
   Minimal
@@ -152,6 +191,16 @@ pub(all) struct Rules {
 pub fn Rules::equal(Self, Self) -> Bool
 pub fn Rules::not_equal(Self, Self) -> Bool
 pub fn Rules::to_repr(Self) -> @debug.Repr
+
+pub(all) enum ScalarStyle {
+  Plain
+  Single
+  Double
+  Literal(Int32)
+  Folded(Int32)
+} derive(Eq)
+pub fn ScalarStyle::equal(Self, Self) -> Bool
+pub fn ScalarStyle::not_equal(Self, Self) -> Bool
 
 pub(all) struct Schema {
   resolve : (String, Bool, String?, At, Rules) -> Json raise Refused
