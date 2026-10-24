@@ -7,4 +7,5 @@
 import {
   "moonbitlang/core/encoding/utf8",
   "moonbitlang/core/double",
+  "moonbitlang/core/json",
 }

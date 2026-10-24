@@ -1,0 +1,5 @@
+// YAML 1.0, https://yaml.org/spec/1.0/ — the first released version, with the
+// single-letter booleans and the binary integers 1.1 kept.
+import {
+  "moonbitstack/moonyaml",
+}

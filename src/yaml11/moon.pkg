@@ -1,0 +1,5 @@
+// YAML 1.1, https://yaml.org/spec/1.1/ — the schema libyaml, PyYAML and Ruby's
+// Psych implement, over the same scanner the root package uses.
+import {
+  "moonbitstack/moonyaml",
+}

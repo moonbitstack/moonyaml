@@ -1,0 +1,17 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "moonbitstack/moonyaml/tests/core"
+
+// Values
+pub fn attempt(String) -> Array[Json]?
+
+pub fn check(Array[Json], Array[String]) -> String?
+
+pub let diverged : Array[(String, String)]
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+
+// Traits

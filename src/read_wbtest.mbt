@@ -160,14 +160,21 @@ test "tags say what a scalar is, and an unknown one is refused" {
   assert_eq(j("a: yes\n"), "{\"a\":\"yes\"}")
   // A verbatim tag names the same thing the shorthand does.
   assert_eq(j("a: !<tag:yaml.org,2002:str> 1\n"), "{\"a\":\"1\"}")
-  // An unknown tag is a document asking for something it did not get.
-  assert_eq(refused("a: !!wat 1\n"), true)
+  // A tag from another vocabulary is not resolved: the scalar is what it would
+  // have been without the tag, which is what §10.4 lets a processor do.
+  assert_eq(j("a: !!wat 1\n"), "{\"a\":1}")
+  assert_eq(j("a: !foo bar\n"), "{\"a\":\"bar\"}")
+  assert_eq(j("a: !!binary AA==\n"), "{\"a\":\"AA==\"}")
+  // A tag on a collection that names a scalar is still a fault.
+  assert_eq(refused("a: !!seq 1\n"), true)
 }
 
 ///|
 test "a %TAG directive redefines a handle for its document" {
   assert_eq(j("%TAG !! tag:yaml.org,2002:\n---\na: !!str 1\n"), "{\"a\":\"1\"}")
-  assert_eq(refused("%NOPE x\n---\na: 1\n"), true)
+  // A directive the reader does not know is ignored, not refused: §6.8.1 leaves
+  // room for directives a later version may define.
+  assert_eq(j("%NOPE x\n---\na: 1\n"), "{\"a\":1}")
 }
 
 ///|
@@ -178,13 +185,14 @@ test "what a version allows is the schema, and this one allows all of it" {
     j("base: &b {x: 1}\nderived:\n  <<: *b\n  y: 2\n"),
     "{\"base\":{\"x\":1},\"derived\":{\"<<\":{\"x\":1},\"y\":2}}",
   )
-  // Hand the reader a schema that merges, and the same document folds. The
-  // explicit key keeps its place and the merged one follows it, which is the
-  // order PyYAML builds the same mapping in.
+  // Hand the reader a schema that merges, and the same document folds. The merged
+  // keys take the place the merge key had — which is the order PyYAML builds the
+  // same mapping in — and an explicit key that repeats one overrides the value
+  // without moving it.
   let merging : Schema = { ..core, merge: true, }
   assert_eq(
     loads("base: &b {x: 1}\nderived:\n  <<: *b\n  y: 2\n"[:], schema=merging).stringify(),
-    "{\"base\":{\"x\":1},\"derived\":{\"y\":2,\"x\":1}}",
+    "{\"base\":{\"x\":1},\"derived\":{\"x\":1,\"y\":2}}",
   )
   // An explicit key wins over the merge that names it, even written after it.
   assert_eq(
@@ -326,9 +334,7 @@ fn refused(src : String) -> Bool {
 
 ///|
 test "every refusal says where, without the caller matching all of them" {
-  let cases = [
-    "a: [1, 2", "a: !!wat 1", "a: *nope", "a: {x: 1", "%NOPE 1\n---\na: 1",
-  ]
+  let cases = ["a: [1, 2", "a: !!seq 1", "a: *nope", "a: {x: 1", "- a\nb: 1"]
   for src in cases {
     let at = try {
       let _ = loads(src[:])

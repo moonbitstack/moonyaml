@@ -1,0 +1,6 @@
+// StrictYAML, https://hitchdev.com/strictyaml/ — a YAML in which nothing is
+// guessed: every scalar is text, and the features that make a document mean
+// something other than what it looks like are gone.
+import {
+  "moonbitstack/moonyaml",
+}

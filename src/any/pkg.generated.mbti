@@ -1,0 +1,23 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "moonbitstack/moonyaml/any"
+
+import {
+  "moonbitstack/moonyaml",
+}
+
+// Values
+pub fn load(BytesView, flavor? : @moonyaml.Flavor, bom? : Bool) -> Json raise @moonyaml.Refused
+
+pub fn loads(StringView, flavor? : @moonyaml.Flavor) -> Json raise @moonyaml.Refused
+
+pub fn loads_all(StringView, flavor? : @moonyaml.Flavor) -> Array[Json] raise @moonyaml.Refused
+
+pub fn of(StringView) -> @moonyaml.Schema raise @moonyaml.Refused
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+
+// Traits

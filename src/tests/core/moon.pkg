@@ -1,0 +1,4 @@
+import {
+  "moonbitstack/moonyaml",
+  "moonbitstack/moonyaml/tests/data",
+}

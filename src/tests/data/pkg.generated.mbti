@@ -1,0 +1,31 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "moonbitstack/moonyaml/tests/data"
+
+// Values
+pub let cases : Array[Case]
+
+pub fn expected(String) -> Json?
+
+pub fn same(Json, Json) -> Bool
+
+pub fn shape(Json) -> Json
+
+// Errors
+
+// Types and methods
+pub(all) struct Case {
+  name : String
+  tags : String
+  src : String
+  docs : Array[String]
+  comparable : Bool
+  fail : Bool
+  anchors : Bool
+  aliases : Bool
+  tagged : Bool
+  flow : Bool
+}
+
+// Type aliases
+
+// Traits

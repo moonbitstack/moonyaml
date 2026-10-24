@@ -152,23 +152,88 @@ pub fn Flavor::new(
 }
 
 ///|
+/// What a YAML version resolves an unquoted scalar to.
+///
+/// The three released versions disagree with each other, and the disagreements are
+/// all here rather than in the scanner: 1.1 reads `yes` as a boolean, `014` as
+/// twelve and `1:30` as ninety, 1.2 reads all three as strings, and StrictYAML
+/// reads every scalar as a string whatever it looks like. A version is a set of
+/// rules over one reader, which is why this library has one parser and not four.
+///
+/// A dialect nobody has published yet — a configuration language of your own, a
+/// pre-1.0 variant — is a `Rules` of your own, passed through [`Schema`]. Nothing
+/// here is closed.
+pub(all) struct Rules {
+  /// `yes`/`no`/`on`/`off` are booleans (YAML 1.1 §10.3).
+  yes_no : Bool
+  /// `y`/`n`, in either case, are booleans — YAML 1.0 only; 1.1 dropped them.
+  letters : Bool
+  /// A `0` prefix means octal: `014` is twelve (1.1 §10.3); 1.2 spells it `0o14`.
+  octal : Bool
+  /// `0b1010` is ten (1.1 §10.3).
+  binary : Bool
+  /// `1_000` is a thousand (1.1 §10.3).
+  underscores : Bool
+  /// `1:30` is ninety and `1:30.5` is ninety and a half (1.1 §10.3).
+  sexagesimal : Bool
+  /// Every scalar is a string, whatever it looks like — StrictYAML's first rule,
+  /// and the reason a StrictYAML document never surprises a reader.
+  strings : Bool
+} derive(Eq, Debug)
+
+///|
+pub extend Rules with Debug::{to_repr}
+
+///|
+pub extend Rules with Eq::{not_equal, equal}
+
+///|
+/// YAML 1.2's core schema: nothing but `true`/`false`, `null`, and the decimal,
+/// `0o` and `0x` numbers of §10.2.
+pub let core_rules : Rules = {
+  yes_no: false,
+  letters: false,
+  octal: false,
+  binary: false,
+  underscores: false,
+  sexagesimal: false,
+  strings: false,
+}
+
+///|
+/// YAML 1.1's type resolution (§10.3 of the 1.1 specification, which is what
+/// libyaml, PyYAML and Ruby's Psych implement): the booleans, the octal and binary
+/// integers, the underscored numbers, and the base-60 form.
+pub let legacy_rules : Rules = {
+  yes_no: true,
+  letters: false,
+  octal: true,
+  binary: true,
+  underscores: true,
+  sexagesimal: true,
+  strings: false,
+}
+
+///|
+/// YAML 1.0's, which is 1.1 plus the single letters `y` and `n`. The 1.1 revision
+/// removed them because a lone `n` is more often a name than a no.
+pub let ancient_rules : Rules = { ..legacy_rules, letters: true, }
+
+///|
 /// What a YAML version does that the scanner cannot decide for it.
 ///
-/// The three released versions of YAML disagree with each other — 1.1 reads
-/// `yes` as a boolean and `014` as twelve, 1.2 reads both as strings, and
-/// StrictYAML reads every scalar as a string — so a reader cannot carry one
-/// set of rules and be right about all of them. The scanner in this package is
-/// shared; what a version resolves a scalar to, and what it allows besides, is
-/// a `Schema`.
+/// The scanner in this package is shared; what a version resolves a scalar to, and
+/// what it allows besides, is a `Schema`.
 ///
 /// The one in this package is [`core`], the core schema of §10.2. The `v11`,
-/// `v10` and `strict` packages beside it are each a schema over the same
-/// scanner, which is why a version is a resolver rather than a fork of the
-/// reader.
+/// `v10`, `strict` and `any` packages beside it are each a schema over the same
+/// scanner, which is why a version is a resolver rather than a fork of the reader.
 pub(all) struct Schema {
   /// A scalar as the value it denotes: its text, whether it was quoted, the tag
-  /// it carried if any, and where it was.
-  resolve : (String, Bool, String?, At) -> Json raise Refused
+  /// it carried if any, where it was, and the rules that decide.
+  resolve : (String, Bool, String?, At, Rules) -> Json raise Refused
+  /// How this version resolves a scalar.
+  rules : Rules
   /// Whether a `<<` key merges its value into the mapping around it.
   merge : Bool
   /// Whether a node may carry a tag.
@@ -186,13 +251,97 @@ pub(all) struct Schema {
 ///|
 /// The core schema of YAML 1.2.2 §10.2: what this package reads.
 pub let core : Schema = {
-  resolve: resolve_core,
+  resolve: resolve_rules,
+  rules: core_rules,
   merge: false,
   tags: true,
   anchors: true,
   flow: true,
   secondary: "tag:yaml.org,2002:",
   primary: "!",
+}
+
+///|
+/// The version a stream declares in its first `%YAML` directive, if it declares one.
+///
+/// A reader may pick its rules from the document itself rather than from the
+/// caller, which is what [`any`] does. Only the first directive counts: §6.8.1
+/// allows one per document, and the one that decides how the rest is read has to
+/// come before the rest.
+pub fn declared_version(src : StringView) -> (Int32, Int32)? {
+  let mut i = 0
+  let mut col = 0
+  while i < src.length() {
+    let c = src[i].to_int()
+    if c == 0x0a || c == 0x0d {
+      col = 0
+      i = i + 1
+      continue
+    }
+    if col == 0 {
+      // A document marker ends the header, and a directive after it belongs to
+      // another document.
+      if c == 0x2d &&
+        i + 2 < src.length() &&
+        src[i + 1].to_int() == 0x2d &&
+        src[i + 2].to_int() == 0x2d {
+        return None
+      }
+      if c == 0x25 && i + 4 < src.length() {
+        let word = src[i:i + 5].to_owned()
+        if word == "%YAML" {
+          let mut j = i + 5
+          while j < src.length() &&
+                (src[j].to_int() == 0x20 || src[j].to_int() == 0x09) {
+            j = j + 1
+          }
+          let start = j
+          while j < src.length() &&
+                src[j].to_int() != 0x20 &&
+                src[j].to_int() != 0x09 &&
+                src[j].to_int() != 0x0a &&
+                src[j].to_int() != 0x0d {
+            j = j + 1
+          }
+          return version_of(src[start:j].to_owned())
+        }
+      }
+    }
+    col = col + 1
+    i = i + 1
+  }
+  None
+}
+
+///|
+/// `1.2` as the pair of numbers it spells, or `None`.
+fn version_of(version : String) -> (Int32, Int32)? {
+  let dot = index_of_unit(version, 0x2e)
+  if dot < 1 || dot == version.length() - 1 {
+    return None
+  }
+  match
+    (digits_of(version[0:dot]), digits_of(version[dot + 1:version.length()])) {
+    (Some(a), Some(b)) => Some((a, b))
+    _ => None
+  }
+}
+
+///|
+/// A run of decimal digits as a number, or `None` if there is anything else in it.
+fn digits_of(s : StringView) -> Int32? {
+  if s.length() == 0 {
+    return None
+  }
+  let mut n = 0
+  for i = 0; i < s.length(); i = i + 1 {
+    let c = s[i].to_int()
+    if c < 0x30 || c > 0x39 {
+      return None
+    }
+    n = n * 10 + (c - 0x30)
+  }
+  Some(n)
 }
 
 ///|

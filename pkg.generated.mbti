@@ -6,21 +6,29 @@ import {
 }
 
 // Values
+pub let ancient_rules : Rules
+
 pub let budget : Int32
 
 pub let core : Schema
 
+pub let core_rules : Rules
+
 pub let depth : Int32
 
-pub fn dump(Json, indent? : Int32, sort? : Bool) -> Bytes
+pub fn dump(Json, style? : Style, indent? : Int32, sort? : Bool) -> Bytes
 
-pub fn dump_all(ArrayView[Json], indent? : Int32, sort? : Bool) -> Bytes
+pub fn dump_all(ArrayView[Json], style? : Style, indent? : Int32, sort? : Bool) -> Bytes
 
-pub fn dumps(Json, indent? : Int32, sort? : Bool) -> String
+pub fn dumps(Json, style? : Style, indent? : Int32, sort? : Bool) -> String
 
-pub fn dumps_all(ArrayView[Json], indent? : Int32, sort? : Bool) -> String
+pub fn dumps_all(ArrayView[Json], style? : Style, indent? : Int32, sort? : Bool) -> String
+
+pub let flow : Style
 
 pub let indent : Int32
+
+pub let legacy_rules : Rules
 
 pub fn load(BytesView, flavor? : Flavor, schema? : Schema, bom? : Bool) -> Json raise Refused
 
@@ -31,6 +39,10 @@ pub fn loads(StringView, flavor? : Flavor, schema? : Schema) -> Json raise Refus
 pub fn loads_all(StringView, flavor? : Flavor, schema? : Schema) -> Array[Json] raise Refused
 
 pub let strict : Flavor
+
+pub let style : Style
+
+pub let width : Int32
 
 // Errors
 pub(all) suberror Refused {
@@ -88,8 +100,39 @@ pub fn Flavor::new(depth? : Int32, duplicates? : Duplicates, aliases? : Bool, bu
 pub fn Flavor::not_equal(Self, Self) -> Bool
 pub fn Flavor::to_repr(Self) -> @debug.Repr
 
+pub(all) enum Layout {
+  Block
+  Flow
+  Auto
+} derive(Eq, @debug.Debug)
+pub fn Layout::equal(Self, Self) -> Bool
+pub fn Layout::not_equal(Self, Self) -> Bool
+pub fn Layout::to_repr(Self) -> @debug.Repr
+
+pub(all) enum Quotes {
+  Minimal
+  Single
+  Double
+} derive(Eq, @debug.Debug)
+pub fn Quotes::equal(Self, Self) -> Bool
+pub fn Quotes::not_equal(Self, Self) -> Bool
+pub fn Quotes::to_repr(Self) -> @debug.Repr
+
+pub(all) struct Rules {
+  yes_no : Bool
+  letters : Bool
+  octal : Bool
+  binary : Bool
+  underscores : Bool
+  sexagesimal : Bool
+} derive(Eq, @debug.Debug)
+pub fn Rules::equal(Self, Self) -> Bool
+pub fn Rules::not_equal(Self, Self) -> Bool
+pub fn Rules::to_repr(Self) -> @debug.Repr
+
 pub(all) struct Schema {
-  resolve : (String, Bool, String?, At) -> Json raise Refused
+  resolve : (String, Bool, String?, At, Rules) -> Json raise Refused
+  rules : Rules
   merge : Bool
   tags : Bool
   anchors : Bool
@@ -97,6 +140,19 @@ pub(all) struct Schema {
   secondary : String
   primary : String
 }
+
+pub(all) struct Style {
+  indent : Int32
+  width : Int32
+  layout : Layout
+  quotes : Quotes
+  anchors : Bool
+  sort : Bool
+} derive(Eq, @debug.Debug)
+pub fn Style::equal(Self, Self) -> Bool
+pub fn Style::new(indent? : Int32, width? : Int32, layout? : Layout, quotes? : Quotes, anchors? : Bool, sort? : Bool) -> Self
+pub fn Style::not_equal(Self, Self) -> Bool
+pub fn Style::to_repr(Self) -> @debug.Repr
 
 // Type aliases
 

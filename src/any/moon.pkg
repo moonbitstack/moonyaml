@@ -1,0 +1,9 @@
+// The version a document asks for — `%YAML 1.1` in the file itself — read with the
+// rules of that version, so a caller can take whatever a directory of YAML throws
+// at it without having to know which release each file was written for.
+import {
+  "moonbitlang/core/encoding/utf8",
+  "moonbitstack/moonyaml",
+  "moonbitstack/moonyaml/yaml10",
+  "moonbitstack/moonyaml/yaml11",
+}

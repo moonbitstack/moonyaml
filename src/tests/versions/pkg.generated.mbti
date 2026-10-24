@@ -1,0 +1,28 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "moonbitstack/moonyaml/tests/versions"
+
+import {
+  "moonbitstack/moonyaml",
+}
+
+// Values
+pub fn find(String) -> Version?
+
+pub fn readings(StringView) -> Array[(String, Json)]
+
+pub let versions : Array[Version]
+
+// Errors
+
+// Types and methods
+pub struct Version {
+  name : String
+  spec : String
+  read : (StringView) -> Json raise @moonyaml.Refused
+  read_all : (StringView) -> Array[Json] raise @moonyaml.Refused
+  write : (Json) -> String
+}
+
+// Type aliases
+
+// Traits
