@@ -224,18 +224,19 @@ fn Reader::dnote(self : Reader) -> String {
 }
 
 ///|
-/// Skip blank lines, and only blank lines: a comment is content here.
+/// Skip the blank lines the cursor sits on, and only those: a comment is content
+/// here.
+///
+/// The cursor ends on the first character that is not a blank — not at the start
+/// of its line — because that is where the caller has to look to know how far the
+/// line is indented (§8.2.1), and the indentation of the line before it says
+/// nothing about it.
 fn Reader::dblank(self : Reader) -> Unit {
   for ;; {
-    let save = (self.pos, self.line, self.bol)
     self.gap()
-    if self.brk() {
-      continue
+    if !self.brk() {
+      break
     }
-    self.pos = save.0
-    self.line = save.1
-    self.bol = save.2
-    break
   }
 }
 
@@ -805,11 +806,19 @@ pub fn parse(
   flavor~ : Flavor = strict,
   schema~ : Schema = core,
 ) -> Node raise Refused {
-  parse_all(src, flavor~, schema~)[0]
+  let docs = parse_all(src, flavor~, schema~)
+  if docs.length() == 0 {
+    Node::of_kind(Null, "")
+  } else {
+    docs[0]
+  }
 }
 
 ///|
 /// Every document in the stream, as trees.
+///
+/// A stream with nothing in it holds no document, which is what `loads_all` says
+/// too; `parse` is where a single document is owed, and it gives the null one.
 pub fn parse_all(
   src : StringView,
   flavor~ : Flavor = strict,
@@ -817,42 +826,88 @@ pub fn parse_all(
 ) -> Array[Node] raise Refused {
   let reader = Reader::new(src, flavor, schema)
   let out : Array[Node] = []
+  let mut last = -1
   for ;; {
     if reader.eof() {
       break
     }
-    // Directives and a `---` are the frame of a document, not its content; the
-    // tree keeps what a document means, and the writer puts the frame back.
-    if reader.cur() == 0x25 {
-      reader.directive()
-      continue
+    // Every turn of this loop has to consume something, or a document that reads
+    // as nothing would spin here for ever.
+    if reader.pos == last {
+      raise Unexpected(reader.at(), reader.printable())
     }
-    if reader.at_marker() {
-      let _ = reader.marker("---")
-      let mut empty = true
-      reader.gap()
-      if !(reader.at_note() || reader.at_break() || reader.eof()) {
-        empty = false
-      }
-      if empty {
-        let _ = reader.brk()
-        out.push(Node::of_kind(Null, ""))
+    last = reader.pos
+    // The frame of a stream — directives, `---`, `...`, comments and blank lines —
+    // is not its content: a tree keeps what a document says, and the writer puts
+    // the frame back from it. They may come in any order (§9.1.1), so they are
+    // read in one loop, and what a `---` opened is decided where it ends.
+    let mut marked = false
+    let before : Array[String] = []
+    let mut open = true
+    while open {
+      if reader.cur() == 0x25 {
+        reader.directive()
         continue
       }
+      if reader.at_marker() {
+        // A second `---` before any content closes an empty document.
+        if marked {
+          out.push({ ..Node::of_kind(Null, ""), before, })
+        }
+        let _ = reader.marker("---")
+        marked = true
+        reader.gap()
+        if !(reader.eof() || reader.at_note() || reader.at_break()) {
+          // A node on the marker's own line: `--- "foo"` is a document.
+          open = false
+        }
+        continue
+      }
+      if reader.at_end_marker() {
+        let _ = reader.marker("...")
+        reader.gap()
+        if reader.at_note() {
+          let _ = reader.dnote()
+        }
+        let _ = reader.brk()
+        // A `---` that closed before it held anything held an empty document.
+        if marked {
+          out.push({ ..Node::of_kind(Null, ""), before, })
+          marked = false
+        }
+        continue
+      }
+      let notes = reader.dcomments()
+      let at = reader.pos
+      for note in notes {
+        before.push(note)
+      }
+      reader.dblank()
+      if reader.pos != at || notes.length() > 0 {
+        continue
+      }
+      open = false
     }
-    let before = reader.dcomments()
-    reader.dblank()
     if reader.eof() {
-      if before.length() > 0 {
+      // A stream that ends on its frame holds whatever the frame opened: a `---`
+      // holds an empty document, and bare comments hold nothing at all.
+      if marked {
+        out.push({ ..Node::of_kind(Null, ""), before, })
+      } else if before.length() > 0 {
         out.push({ ..Node::of_kind(Null, ""), before, })
       }
       break
     }
     out.push(reader.dnode(-1, 0, before~))
     reader.skip()
-  }
-  if out.length() == 0 {
-    out.push(Node::of_kind(Null, ""))
+    if reader.at_end_marker() {
+      let _ = reader.marker("...")
+      reader.gap()
+      if reader.at_note() {
+        let _ = reader.dnote()
+      }
+      let _ = reader.brk()
+    }
   }
   out
 }
@@ -1182,7 +1237,12 @@ fn write_block(
         for comment in item.before {
           write_comment(out, comment, inner)
         }
-        out.write_string(spaces(inner))
+        if first && on_dash {
+          // The `-` that opened this entry is the first line's indentation.
+        } else {
+          out.write_string(spaces(inner))
+        }
+        first = false
         out.write_char('-')
         match inline_text(item) {
           Some(text) =>

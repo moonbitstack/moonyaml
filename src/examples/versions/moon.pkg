@@ -1,0 +1,9 @@
+import {
+  "moonbitstack/moonyaml",
+  "moonbitstack/moonyaml/any",
+  "moonbitstack/moonyaml/strict",
+  "moonbitstack/moonyaml/yaml10",
+  "moonbitstack/moonyaml/yaml11",
+}
+
+pkgtype(kind: "executable")

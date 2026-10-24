@@ -39,3 +39,14 @@ pub let diverged : Array[(String, String)] = [
   ("DK95/2", "read a document the suite says must be refused"),
   ("Y79Y/4", "read a document the suite says must be refused"),
 ]
+
+///|
+/// The name of the suite case with this id, for a line of output a person reads.
+pub fn case_name(id : String) -> String {
+  for c in @data.cases {
+    if c.id == id {
+      return c.name
+    }
+  }
+  id
+}

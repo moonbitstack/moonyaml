@@ -46,22 +46,11 @@ pub fn divergences() -> Array[(String, String)] {
 test "the suite: YAML 1.2.2 core schema" {
   let wrong = divergences()
   for (id, why) in wrong {
-    println("  \{id}: \{why}  (\{name_of(id)})")
+    println("  \{id}: \{why}  (\{case_name(id)})")
   }
   let seen = wrong.map(fn(pair) { pair.0 })
   seen.sort()
   let known = diverged.map(fn(pair) { pair.0 })
   known.sort()
   assert_eq(seen, known)
-}
-
-///|
-/// The name of the case with this id, for a line of output a person reads.
-fn name_of(id : String) -> String {
-  for c in @data.cases {
-    if c.id == id {
-      return c.name
-    }
-  }
-  id
 }

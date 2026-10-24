@@ -4,6 +4,8 @@ package "moonbitstack/moonyaml/tests/core"
 // Values
 pub fn attempt(String) -> Array[Json]?
 
+pub fn case_name(String) -> String
+
 pub fn check(Array[Json], Array[String]) -> String?
 
 pub let diverged : Array[(String, String)]
