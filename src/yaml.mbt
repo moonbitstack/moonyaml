@@ -57,9 +57,10 @@ pub impl Show for Refused with fn output(self, logger) {
     Truncated(at) => logger.write_string("\{at}: ends mid-document")
     BadEscape(at) => logger.write_string("\{at}: not an escape")
     BadIndent(at) => logger.write_string("\{at}: indentation does not line up")
-    BadTag(at, t) => logger.write_string("\{at}: unknown tag \{t}")
-    BadAnchor(at, a) => logger.write_string("\{at}: no anchor named \{a}")
-    Repeated(at, k) => logger.write_string("\{at}: repeated key \{k}")
+    BadTag(at, t) => logger.write_string("\{at}: unknown tag `\{t}`")
+    BadAnchor(at, a) => logger.write_string("\{at}: no anchor named `\{a}`")
+    Repeated(at, k) =>
+      logger.write_string("\{at}: the key `\{k}` is written twice")
     Trailing(at) => logger.write_string("\{at}: trailing content")
     TooDeep(at) => logger.write_string("\{at}: nested too deep")
     Exceeded(at~, limit~, got~) =>
