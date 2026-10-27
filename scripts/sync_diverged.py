@@ -7,8 +7,8 @@ make, but it means an improvement to the reader has to be recorded. This script
 runs one harness, reads the list of divergences it printed, and rewrites the
 `diverged` array in that harness's MoonBit source.
 
-    python tools/sync_diverged.py                      # the 1.2.2 harness
-    python tools/sync_diverged.py --package .../v11 --source .../v11_wbtest.mbt
+    python scripts/sync_diverged.py                      # the 1.2.2 harness
+    python scripts/sync_diverged.py --package .../v11 --source .../v11_wbtest.mbt
 
 It exits non-zero when it could not read the run at all, so a broken build is not
 mistaken for a clean list.

@@ -1,6 +1,6 @@
 name: Site
 
-# The guide, the examples and the homepage are plain files in `site/`, with no
+# The guide, the examples and the homepage are plain files in `docs/`, with no
 # build step: what is in the repository is what is served. Turn this on once in
 # Settings → Pages → Build and deployment → Source: GitHub Actions.
 on:
@@ -8,7 +8,7 @@ on:
     branches:
       - master
     paths:
-      - "site/**"
+      - "docs/**"
       - ".github/workflows/site.yml"
   workflow_dispatch:
 
@@ -39,7 +39,7 @@ jobs:
           python3 - <<'PY'
           import pathlib, re, sys
 
-          site = pathlib.Path("site")
+          site = pathlib.Path("docs")
           broken = []
           for page in sorted(site.glob("*.html")):
               body = page.read_text(encoding="utf-8")
@@ -58,7 +58,7 @@ jobs:
 
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: site
+          path: docs
 
       - id: deploy
         uses: actions/deploy-pages@v4

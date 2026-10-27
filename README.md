@@ -226,8 +226,8 @@ script, so it runs in CI:
 - **the divergence lists**, which fail in either direction: a new difference is a
   decision, and a listed difference that starts passing is a stale claim
 
-`tools/gen_suite.py` regenerates the suite data from a checkout of
-`yaml-test-suite`, and `tools/sync_diverged.py` rewrites a divergence list from a
+`scripts/gen_suite.py` regenerates the suite data from a checkout of
+`yaml-test-suite`, and `scripts/sync_diverged.py` rewrites a divergence list from a
 run. Neither is needed to build or test.
 
 ## Examples
