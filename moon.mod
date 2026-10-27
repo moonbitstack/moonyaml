@@ -12,4 +12,4 @@ source = "src"
 
 keywords = [ "yaml", "config", "moonbit" ]
 
-description = "YAML for MoonBit."
+description = "YAML 1.0, 1.1 and 1.2 for MoonBit."
