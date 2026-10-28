@@ -8,8 +8,11 @@
 /// Every refusal carries one, because a configuration file that will not load is
 /// read by a person who needs to know which line to look at.
 pub(all) struct At {
+  /// The offset in code units from the start of the text.
   at : Int32
+  /// The line, counting from one.
   line : Int32
+  /// The column, counting from one.
   column : Int32
 } derive(Eq, Debug)
 
@@ -35,17 +38,32 @@ pub extend At with Eq::{not_equal, equal}
 /// instead: anything it cannot resolve to one reading is an error with a position,
 /// never a guess.
 pub(all) suberror Refused {
+  /// A character that cannot stand where it was written.
   Unexpected(At, Char)
+  /// The text ends inside a document: a quote, a bracket or a block scalar that
+  /// was never closed.
   Truncated(At)
+  /// A double-quoted escape that is not one of §5.7's.
   BadEscape(At)
+  /// A line indented to a column that lines up with nothing.
   BadIndent(At)
+  /// A tag nobody has, or a node tagged as something it cannot be.
   BadTag(At, String)
+  /// An alias naming an anchor that was not written before it.
   BadAnchor(At, String)
+  /// A key written twice, under `duplicates: Reject`.
   Repeated(At, String)
+  /// A second document where one was asked for.
   Trailing(At)
+  /// Nesting past [`Flavor::depth`].
   TooDeep(At)
+  /// Aliases expanding past [`Flavor::budget`], with the limit and what it reached.
   Exceeded(at~ : At, limit~ : Int32, got~ : Int32)
+  /// Not UTF-8, from the byte entry points.
   BadUtf8(At)
+  /// A construct this version does not have: a flow collection under the strict
+  /// dialect, a tag or an anchor under a schema that has none, a key that is a
+  /// collection where the value tree has only string keys.
   Disallowed(At, String)
 } derive(Eq, Debug)
 
@@ -88,8 +106,11 @@ pub extend Refused with Eq::{not_equal, equal}
 /// is what `Last` does; `First` and `Reject` are here because a configuration file
 /// with a key written twice is usually a mistake someone would rather be told about.
 pub(all) enum Duplicates {
+  /// The last value written for a key is the one the mapping has.
   Last
+  /// The first value written for a key is the one the mapping has.
   First
+  /// A repeated key is refused, with the position of the second one.
   Reject
 } derive(Eq, Debug)
 
@@ -105,9 +126,14 @@ pub extend Duplicates with Eq::{not_equal, equal}
 /// The preset is [`strict`]. Build another with [`Flavor::new`], or update one in
 /// place with `{ ..strict, depth: 64 }`.
 pub(all) struct Flavor {
+  /// How deep a document may nest. See [`depth`].
   depth : Int32
+  /// What a key written twice means. See [`Duplicates`].
   duplicates : Duplicates
+  /// Whether an alias may be resolved at all: `false` refuses one outright, which
+  /// is what a caller reading untrusted input may want.
   aliases : Bool
+  /// How many nodes the aliases of one document may expand to. See [`budget`].
   budget : Int32
 } derive(Eq, Debug)
 
@@ -120,20 +146,21 @@ pub extend Flavor with Eq::{not_equal, equal}
 ///|
 /// How deep a document may nest.
 ///
-/// 500 is what this family uses for JSON, between Jackson's 1000 and serde_json's
-/// 128, and a YAML document that nests deeper than a JSON one would is not a
-/// configuration file.
+/// 500 is deep enough for any configuration file ever written and shallow enough
+/// that a reader which walks the tree cannot be driven off the stack by one that
+/// was not. A document that nests deeper than this is not a configuration file, and
+/// is refused rather than read.
 pub let depth : Int32 = 500
 
 ///|
 /// How many nodes the aliases in one document may expand to.
 ///
 /// An alias can name a node that itself contains aliases, so a dozen lines can
-/// expand to billions — the "billion laughs" of YAML, which libyaml and PyYAML's
-/// `safe_load` both still perform faithfully. There is no common value to follow
-/// here, so this takes the safe side: enough for any real document, far short of
-/// exhausting memory. `Flavor::new(budget=...)` raises it, and `aliases=false`
-/// refuses them outright.
+/// expand to billions of nodes: the "billion laughs" shape, which is what YAML's
+/// alias facility costs unless something counts. There is no published value to
+/// follow, so this takes the safe side — enough for any document anyone meant to
+/// write, far short of exhausting memory. `Flavor::new(budget=...)` raises it, and
+/// `aliases=false` refuses an alias outright.
 pub let budget : Int32 = 10_000_000
 
 ///|
@@ -202,9 +229,8 @@ pub let core_rules : Rules = {
 }
 
 ///|
-/// YAML 1.1's type resolution (§10.3 of the 1.1 specification, which is what
-/// libyaml, PyYAML and Ruby's Psych implement): the booleans, the octal and binary
-/// integers, the underscored numbers, and the base-60 form.
+/// YAML 1.1's type resolution, §10.3 of the 1.1 specification: the booleans, the
+/// octal and binary integers, the underscored numbers, and the base-60 form.
 pub let legacy_rules : Rules = {
   yes_no: true,
   letters: false,

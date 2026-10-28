@@ -9,6 +9,7 @@
 /// Both carry where — the reader's position, or the path into the document — so a
 /// caller can say which line to look at.
 pub(all) suberror Malformed {
+  /// The text is not YAML at all: see [`Refused`] for the rule it broke.
   Read(Refused)
   /// The document read fine and is not the shape the type asked for. The path is
   /// a JSON Pointer into what was read, `/servers/2/port`.

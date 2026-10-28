@@ -8,8 +8,6 @@ pub fn case_name(String) -> String
 
 pub fn check(Array[Json], Array[String]) -> String?
 
-pub let diverged : Array[(String, String)]
-
 // Errors
 
 // Types and methods

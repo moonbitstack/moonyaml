@@ -17,10 +17,15 @@
 /// A block scalar carries the chomping indicator that was written with it, because
 /// `|` and `|-` are different strings at the end of a line.
 pub(all) enum ScalarStyle {
+  /// Nothing around it: `one`.
   Plain
+  /// `'one'`, where a backslash is a backslash.
   Single
+  /// `"one"`, the only form with escapes.
   Double
+  /// `|` with its chomping indicator: the breaks are content, one per line.
   Literal(Int32)
+  /// `>` with its chomping indicator: the breaks fold, and a blank line spells one.
   Folded(Int32)
 } derive(Eq)
 // `Eq` on a public enum is only useful when the methods are methods, and saying
@@ -36,18 +41,27 @@ pub extend ScalarStyle with Eq::{not_equal, equal}
 /// with an anchor and three aliases is three references, and writing it back as
 /// twelve copies would be a different document.
 pub(all) enum Kind {
+  /// An empty node: `~`, `null`, or nothing written at all.
   Null
+  /// A boolean, which only `true` and `false` are under the core schema.
   Bool(Bool)
+  /// A number, held as the double it denotes.
   Number(Double)
+  /// A string: everything that is not one of the above and was not tagged.
   Str(String)
+  /// A sequence, in block or flow style.
   Sequence(Array[Node])
+  /// A mapping, as the pairs it was written with: order is part of it, and a
+  /// repeated key is kept twice.
   Mapping(Array[(Node, Node)])
+  /// A reference to a node written earlier, by the anchor it was given.
   Alias(String)
 }
 
 ///|
 /// One node of a document.
 pub(all) struct Node {
+  /// What the node is.
   kind : Kind
   /// A scalar as it was written, before resolution: `014`, `yes`, `~`.
   ///
@@ -58,12 +72,24 @@ pub(all) struct Node {
   style : ScalarStyle
   /// Whether a collection was written in flow style.
   flow : Bool
+  /// The `&name` the node was given, if it was given one.
   anchor : String?
+  /// The tag written in front of the node, resolved through the document's
+  /// `%TAG` handles — `tag:yaml.org,2002:str` rather than `!!str`.
   tag : String?
   /// The comment lines written above this node, without their `#`.
   before : Array[String]
   /// The comment at the end of this node's last line, without its `#`.
   after : String?
+  /// Whether the document this node heads was opened by an explicit `---`.
+  ///
+  /// The markers are the frame of a document rather than its content (§9.1.1),
+  /// but they are written as deliberately as anything else, and a document that
+  /// had them gets them back. Both are false for every node that is not a
+  /// document's root.
+  explicit : Bool
+  /// Whether the document was closed by an explicit `...`.
+  closed : Bool
 }
 
 ///|
@@ -78,6 +104,8 @@ pub fn Node::scalar(text : String) -> Node {
     tag: None,
     before: [],
     after: None,
+    explicit: false,
+    closed: false,
   }
 }
 
@@ -93,6 +121,8 @@ pub fn Node::of_kind(kind : Kind, text : String) -> Node {
     tag: None,
     before: [],
     after: None,
+    explicit: false,
+    closed: false,
   }
 }
 
@@ -108,6 +138,8 @@ pub fn Node::seq(items : Array[Node]) -> Node {
     tag: None,
     before: [],
     after: None,
+    explicit: false,
+    closed: false,
   }
 }
 
@@ -123,6 +155,8 @@ pub fn Node::map(pairs : Array[(Node, Node)]) -> Node {
     tag: None,
     before: [],
     after: None,
+    explicit: false,
+    closed: false,
   }
 }
 
@@ -172,7 +206,9 @@ pub fn Node::same(self : Node, other : Node) -> Bool {
     self.anchor != other.anchor ||
     self.tag != other.tag ||
     self.before != other.before ||
-    self.after != other.after {
+    self.after != other.after ||
+    self.explicit != other.explicit ||
+    self.closed != other.closed {
     return false
   }
   match (self.kind, other.kind) {
@@ -235,6 +271,26 @@ fn Reader::dblank(self : Reader) -> Unit {
   for ;; {
     self.gap()
     if !self.brk() {
+      break
+    }
+  }
+}
+
+///|
+/// The comments above the next node, with the blank lines between them stepped
+/// over in either order.
+///
+/// `dcomments` stops at a blank line, which is what the caller after a value
+/// needs; above a node a blank line detaches nothing, so a `# note`, a blank line
+/// and then a sequence entry are still a comment on that entry.
+fn Reader::dpreamble(self : Reader, before : Array[String]) -> Unit {
+  for ;; {
+    let at = self.pos
+    for note in self.dcomments() {
+      before.push(note)
+    }
+    self.dblank()
+    if self.pos == at {
       break
     }
   }
@@ -315,7 +371,20 @@ fn Reader::dnode(
   let start = (self.pos, self.line, self.bol)
   let opened = self.column()
   if self.cur() == 0x2a {
+    // An alias may be the key of a pair — `*a : 1` — in which case the mapping
+    // starts where the alias does (§7.1).
+    if self.alias_line() {
+      return { ..self.dblock_map(self.column(), depth), before, }
+    }
     let name = self.dalias()
+    self.gap()
+    let after = if self.at_note() {
+      let note = self.dnote()
+      let _ = self.brk()
+      Some(note)
+    } else {
+      None
+    }
     return {
       kind: Alias(name),
       text: "",
@@ -324,12 +393,41 @@ fn Reader::dnode(
       anchor: None,
       tag: None,
       before,
-      after: None,
+      after,
+      explicit: false,
+      closed: false,
     }
   }
   let props = self.props(indent, dedent~)
   let moved = self.line != start.1
   let col = if moved { self.column() } else { opened }
+  // A property on the line above the first key describes the mapping, and the
+  // properties written on the key's own line describe the key: going back to the
+  // start of that line is what lets the mapping read them there (§8.2.1).
+  if props.key_line {
+    let col = self.column()
+    self.pos = self.bol
+    let node = { ..self.dblock_map(col, depth), tag: props.tag, }
+    return match props.anchor {
+      Some(name) => { ..node.anchored(name), before, }
+      None => { ..node, before, }
+    }
+  }
+  // A tag or an anchor written in front of a key describes the key, not the
+  // mapping it starts (§8.2.1): `!!str a: b` is a mapping whose key is a string,
+  // while a property on a line of its own, above the first key, describes the
+  // mapping. Going back to where the properties began is what lets the mapping
+  // read them for its first key, and is why nothing is attached here.
+  if !moved &&
+    (props.anchor is Some(_) || props.tag is Some(_)) &&
+    self.cur() != 0x5b &&
+    self.cur() != 0x7b &&
+    self.key_line() {
+    self.pos = start.0
+    self.line = start.1
+    self.bol = start.2
+    return { ..self.dblock_map(opened, depth), before, }
+  }
   let node = self.dbody(
     indent,
     depth,
@@ -361,12 +459,29 @@ fn Reader::dbody(
 ) -> Node raise Refused {
   let at = self.at()
   let plain_of = fn(kind, text, style) -> Node {
-    { kind, text, style, flow: false, anchor: None, tag, before, after: None, }
+    {
+      kind,
+      text,
+      style,
+      flow: false,
+      anchor: None,
+      tag,
+      before,
+      after: None,
+      explicit: false,
+      closed: false,
+    }
   }
   match self.cur() {
     0x5b | 0x7b => {
       if !self.schema.flow {
         raise Disallowed(at, "flow style")
+      }
+      // A flow collection may be the key of a block mapping — `[a, b]: c` — and
+      // then the mapping is the node, with the collection as its first key.
+      if self.flow_key() {
+        let node = self.dblock_map(col, depth)
+        return { ..node, before, tag, }
       }
       let node = if self.cur() == 0x5b {
         self.dflow_seq(indent, depth)
@@ -424,7 +539,9 @@ fn Reader::dbody(
           self.line = back.1
           self.bol = back.2
           let node = self.dblock_map(if moved { own_col } else { col }, depth)
-          { ..node, before, tag, }
+          // Going back over the properties is how the first key gets them: they
+          // were written in front of the key, not in front of the mapping.
+          { ..node, before, tag: if moved { tag } else { None }, }
         } else {
           self.pos = tail.0
           self.line = tail.1
@@ -456,8 +573,8 @@ fn Reader::dblock_seq(
   }
   let items : Array[Node] = []
   for ;; {
-    let before = self.dcomments()
-    self.dblank()
+    let before : Array[String] = []
+    self.dpreamble(before)
     if self.eof() || self.at_marker() || self.at_end_marker() {
       break
     }
@@ -503,8 +620,8 @@ fn Reader::dblock_map(
   let pairs : Array[(Node, Node)] = []
   let merges : Array[(At, Node)] = []
   for ;; {
-    let before = self.dcomments()
-    self.dblank()
+    let before : Array[String] = []
+    self.dpreamble(before)
     if self.eof() || self.at_marker() || self.at_end_marker() {
       break
     }
@@ -522,7 +639,22 @@ fn Reader::dblock_map(
       self.bump()
       self.gap()
       let key = if self.spent_line() {
-        Node::of_kind(Null, "")
+        // The key is on the lines under the `?`, and a sequence there may start
+        // in the column of the `?` itself, which is what makes a sequence a key
+        // without the indent a value would need (§8.2.2).
+        self.gap()
+        self.note()
+        let _ = self.brk()
+        self.skip()
+        if self.eof() || self.at_marker() || self.at_end_marker() {
+          Node::of_kind(Null, "")
+        } else if self.column() == indent && self.at_item() {
+          self.dblock_seq(indent, depth + 1)
+        } else if self.column() > indent {
+          self.dnode(indent, depth + 1, dedent=true)
+        } else {
+          Node::of_kind(Null, "")
+        }
       } else {
         self.dnode(indent, depth + 1, before~)
       }
@@ -546,40 +678,10 @@ fn Reader::dblock_map(
     }
     let kp = self.props(indent)
     self.gap()
-    let key = if self.cur() == 0x2a {
-      if kp.anchor is Some(_) || kp.tag is Some(_) {
-        raise Unexpected(at, '*')
-      }
-      let name = self.dalias()
-      { ..Node::of_kind(Alias(name), ""), before, }
-    } else {
-      let style = match self.cur() {
-        0x27 => ScalarStyle::Single
-        0x22 => ScalarStyle::Double
-        _ => Plain
-      }
-      let (text, quoted) = self.scalar_text(Mode::Key, indent)
-      if self.line != at.line {
-        raise Unexpected(self.at(), '\n')
-      }
-      self.gap()
-      guard self.at_value_sep() else {
-        if text.length() == 0 && !quoted && kp.tag is None && kp.anchor is None {
-          break
-        }
-        raise Unexpected(at, self.printable())
-      }
-      let kind = self.dkind(text, quoted, kp.tag, at)
-      {
-        kind,
-        text,
-        style,
-        flow: false,
-        anchor: kp.anchor,
-        tag: kp.tag,
-        before,
-        after: None,
-      }
+    let key = match self.dkey(indent, depth, at, kp, before) {
+      Some(key) => key
+      // Nothing where a key should be: the mapping ended on a line of its own.
+      None => break
     }
     self.bump()
     // A bare `<<` is the merge key in the versions that have one.
@@ -598,6 +700,74 @@ fn Reader::dblock_map(
     }
   }
   Node::map(pairs)
+}
+
+///|
+/// The key of an implicit pair, with the properties written in front of it.
+///
+/// A key may be a scalar, an alias, or a flow collection — `[a, b]: c` is a
+/// mapping whose key is a sequence (§7.3.3, §7.4.2) — and it is one line long
+/// whichever it is. `None` means the line holds no pair at all, which is where a
+/// block mapping ends.
+fn Reader::dkey(
+  self : Reader,
+  indent : Int32,
+  depth : Int32,
+  at : At,
+  kp : Props,
+  before : Array[String],
+) -> Node? raise Refused {
+  if self.cur() == 0x2a {
+    if kp.anchor is Some(_) || kp.tag is Some(_) {
+      raise Unexpected(at, '*')
+    }
+    let name = self.dalias()
+    self.gap()
+    guard self.at_value_sep() else { raise Unexpected(at, self.printable()) }
+    return Some({ ..Node::of_kind(Alias(name), ""), before, })
+  }
+  if self.cur() == 0x5b || self.cur() == 0x7b {
+    if !self.schema.flow {
+      raise Disallowed(self.at(), "flow style")
+    }
+    let node = if self.cur() == 0x5b {
+      self.dflow_seq(indent, depth + 1)
+    } else {
+      self.dflow_map(indent, depth + 1)
+    }
+    self.gap()
+    guard self.at_value_sep() else { raise Unexpected(at, self.printable()) }
+    return Some({ ..node, tag: kp.tag, anchor: kp.anchor, before, })
+  }
+  let style = match self.cur() {
+    0x27 => ScalarStyle::Single
+    0x22 => ScalarStyle::Double
+    _ => Plain
+  }
+  let (text, quoted) = self.scalar_text(Mode::Key, indent)
+  if self.line != at.line {
+    raise Unexpected(self.at(), '\n')
+  }
+  self.gap()
+  if !self.at_value_sep() {
+    if text.length() == 0 && !quoted && kp.tag is None && kp.anchor is None {
+      return None
+    }
+    raise Unexpected(at, self.printable())
+  }
+  let kind = self.dkind(text, quoted, kp.tag, at)
+  Some({
+    kind,
+    text,
+    style,
+    flow: false,
+    anchor: kp.anchor,
+    tag: kp.tag,
+    before,
+    after: None,
+    explicit: false,
+    closed: false,
+  })
 }
 
 ///|
@@ -655,7 +825,7 @@ fn Reader::dpair_value(
 }
 
 ///|
-/// A flow sequence.
+/// A flow sequence, whose entries may each be a single pair of its own.
 fn Reader::dflow_seq(
   self : Reader,
   indent : Int32,
@@ -677,8 +847,66 @@ fn Reader::dflow_seq(
     if self.cur() == 0x2c {
       raise Unexpected(self.at(), ',')
     }
-    items.push(self.dflow_node(indent, depth + 1))
-    self.flow_gap(indent, 0x5d)
+    if self.at_explicit_key() {
+      // `[? key : value]` is a single pair written out, which is a one-pair
+      // mapping like any other (§7.4.4).
+      self.bump()
+      self.flow_gap(indent, 0x5d)
+      let key = if self.cur() is (0x3a | 0x2c | 0x5d) {
+        Node::of_kind(Null, "")
+      } else {
+        self.dflow_node(indent, depth + 1)
+      }
+      self.flow_gap(indent, 0x5d)
+      let value = if self.cur() == 0x3a {
+        self.bump()
+        self.flow_gap(indent, 0x5d)
+        if self.cur() is (0x2c | 0x5d) {
+          Node::of_kind(Null, "")
+        } else {
+          self.dflow_node(indent, depth + 1)
+        }
+      } else {
+        Node::of_kind(Null, "")
+      }
+      items.push({ ..Node::map([(key, value)]), flow: true, })
+      self.flow_gap(indent, 0x5d)
+    } else if self.at_empty_key() {
+      // `[: value]` is a single pair whose key was not written (§7.4.1).
+      self.bump()
+      self.flow_gap(indent, 0x5d)
+      let value = if self.cur() is (0x2c | 0x5d) {
+        Node::of_kind(Null, "")
+      } else {
+        self.dflow_node(indent, depth + 1)
+      }
+      items.push({
+        ..Node::map([(Node::of_kind(Null, ""), value)]),
+        flow: true,
+      })
+      self.flow_gap(indent, 0x5d)
+    } else {
+      let kline = self.line
+      let mut entry = self.dflow_node(indent, depth + 1)
+      self.flow_gap(indent, 0x5d)
+      // `[a: b]` is a one-pair mapping, which is where a block mapping would have
+      // been if the sequence were not flow, and its key is one line long (§7.4.1).
+      if self.cur() == 0x3a && self.line == kline {
+        self.bump()
+        self.flow_gap(indent, 0x5d)
+        let value = if self.cur() is (0x2c | 0x5d) {
+          Node::of_kind(Null, "")
+        } else {
+          self.dflow_node(indent, depth + 1)
+        }
+        entry = { ..Node::map([(entry, value)]), flow: true, }
+        self.flow_gap(indent, 0x5d)
+      }
+      items.push(entry)
+    }
+    if self.eof() {
+      raise Truncated(at)
+    }
     if self.cur() == 0x2c {
       self.bump()
     } else if self.cur() != 0x5d {
@@ -711,12 +939,17 @@ fn Reader::dflow_map(
     if self.cur() == 0x2c {
       raise Unexpected(self.at(), ',')
     }
-    let kat = self.at()
+    // `? ` introduces an explicit key, and `: ` on its own a key that was not
+    // written: both are pairs with an empty side (§7.4.2).
     if self.at_explicit_key() {
       self.bump()
-      self.gap()
+      self.flow_gap(indent, 0x7d)
     }
-    let key = self.dflow_node(indent, depth + 1)
+    let key = if self.cur() is (0x2c | 0x7d) || self.at_empty_key() {
+      Node::of_kind(Null, "")
+    } else {
+      self.dflow_node(indent, depth + 1)
+    }
     self.flow_gap(indent, 0x7d)
     let value = if self.cur() == 0x3a {
       self.bump()
@@ -727,11 +960,14 @@ fn Reader::dflow_map(
         self.dflow_node(indent, depth + 1)
       }
     } else {
+      // `{a, b}` is a set: keys with empty values (§7.4.2).
       Node::of_kind(Null, "")
     }
-    let _ = kat
     pairs.push((key, value))
     self.flow_gap(indent, 0x7d)
+    if self.eof() {
+      raise Truncated(at)
+    }
     if self.cur() == 0x2c {
       self.bump()
     } else if self.cur() != 0x7d {
@@ -765,15 +1001,31 @@ fn Reader::dflow_node(
       if !self.schema.flow {
         raise Disallowed(at, "flow style")
       } else {
-        self.dflow_seq(indent, depth)
+        // A tag describes the collection whether or not anything is in it, so it
+        // belongs on the node the collection makes (§6.9.1).
+        let node = self.dflow_seq(indent, depth)
+        { ..node, tag: props.tag, }
       }
     0x7b =>
       if !self.schema.flow {
         raise Disallowed(at, "flow style")
       } else {
-        self.dflow_map(indent, depth)
+        let node = self.dflow_map(indent, depth)
+        { ..node, tag: props.tag, }
       }
     _ => {
+      // A property with no node behind it stands for the empty scalar:
+      // `{foo: !!str,}` is a mapping whose value is the empty string (§7.4.2).
+      let bare = (props.tag is Some(_) || props.anchor is Some(_)) &&
+        self.cur() is (0x2c | 0x5b | 0x5d | 0x7b | 0x7d | 0x3a | -1)
+      if bare {
+        let kind = self.dkind("", false, props.tag, at)
+        return match props.anchor {
+          Some(name) =>
+            { ..Node::of_kind(kind, "").anchored(name), tag: props.tag, }
+          None => { ..Node::of_kind(kind, ""), tag: props.tag, }
+        }
+      }
       let style = match self.cur() {
         0x27 => ScalarStyle::Single
         0x22 => ScalarStyle::Double
@@ -790,6 +1042,8 @@ fn Reader::dflow_node(
         tag: props.tag,
         before: [],
         after: None,
+        explicit: false,
+        closed: false,
       }
     }
   }
@@ -837,6 +1091,12 @@ pub fn parse_all(
       raise Unexpected(reader.at(), reader.printable())
     }
     last = reader.pos
+    // A document's directives and anchors are its own: `%TAG` and `%YAML` are
+    // read again for the next one (§6.8.1), and an alias does not reach past a
+    // `...`.
+    reader.handles.clear()
+    reader.anchors.clear()
+    reader.versioned = false
     // The frame of a stream — directives, `---`, `...`, comments and blank lines —
     // is not its content: a tree keeps what a document says, and the writer puts
     // the frame back from it. They may come in any order (§9.1.1), so they are
@@ -852,7 +1112,7 @@ pub fn parse_all(
       if reader.at_marker() {
         // A second `---` before any content closes an empty document.
         if marked {
-          out.push({ ..Node::of_kind(Null, ""), before, })
+          out.push({ ..Node::of_kind(Null, ""), before, explicit: true, })
         }
         let _ = reader.marker("---")
         marked = true
@@ -872,7 +1132,12 @@ pub fn parse_all(
         let _ = reader.brk()
         // A `---` that closed before it held anything held an empty document.
         if marked {
-          out.push({ ..Node::of_kind(Null, ""), before, })
+          out.push({
+            ..Node::of_kind(Null, ""),
+            before,
+            explicit: true,
+            closed: true,
+          })
           marked = false
         }
         continue
@@ -890,16 +1155,17 @@ pub fn parse_all(
     }
     if reader.eof() {
       // A stream that ends on its frame holds whatever the frame opened: a `---`
-      // holds an empty document, and bare comments hold nothing at all.
+      // holds an empty document, and comments on their own hold nothing at all —
+      // a comment is not a document, and a tree that invented one for it would
+      // disagree with the value the same stream denotes.
       if marked {
-        out.push({ ..Node::of_kind(Null, ""), before, })
-      } else if before.length() > 0 {
-        out.push({ ..Node::of_kind(Null, ""), before, })
+        out.push({ ..Node::of_kind(Null, ""), before, explicit: true, })
       }
       break
     }
-    out.push(reader.dnode(-1, 0, before~))
+    let root = reader.dnode(-1, 0, before~)
     reader.skip()
+    let mut closed = false
     if reader.at_end_marker() {
       let _ = reader.marker("...")
       reader.gap()
@@ -907,7 +1173,9 @@ pub fn parse_all(
         let _ = reader.dnote()
       }
       let _ = reader.brk()
+      closed = true
     }
+    out.push({ ..root, explicit: marked, closed, })
   }
   out
 }
@@ -1073,6 +1341,65 @@ fn props_after(out : StringBuilder, node : Node) -> Unit {
 }
 
 ///|
+/// Whether the first line of `text` that holds anything starts with a space, which
+/// is the case a block scalar needs an explicit indentation indicator for.
+fn starts_indented(text : String) -> Bool {
+  for i = 0; i < text.length(); i = i + 1 {
+    let c = text[i].to_int()
+    if c == 0x0a {
+      continue
+    }
+    return c == 0x20
+  }
+  false
+}
+
+///|
+/// `text` with each break it holds spelled as the blank lines that fold back into
+/// it, continuing at column `at`.
+///
+/// One break between two lines of a plain or quoted scalar folds to a space, so a
+/// break the text really holds has to be written as two (§6.5). A run of `k`
+/// breaks becomes `k + 1`.
+fn folded_text(text : String, at : Int32) -> String {
+  if index_of_unit(text, 0x0a) < 0 {
+    return text
+  }
+  let out = StringBuilder()
+  let mut i = 0
+  while i < text.length() {
+    if text[i].to_int() == 0x0a {
+      let mut k = 0
+      while i < text.length() && text[i].to_int() == 0x0a {
+        k = k + 1
+        i = i + 1
+      }
+      for _ in 0..<(k + 1) {
+        out.write_char('\n')
+      }
+      if i < text.length() {
+        out.write_string(spaces(at))
+      }
+      continue
+    }
+    out.write_char(text[i].unsafe_to_char())
+    i = i + 1
+  }
+  out.to_string()
+}
+
+///|
+/// A scalar as it is written in block context, continuing at column `at` when its
+/// text holds a break.
+fn scalar_written(node : Node, at : Int32) -> String {
+  match node.style {
+    Single => folded_text(dquote_single(node.text), at)
+    Double => dquote_double(node.text)
+    _ => if node.text.length() == 0 { "" } else { folded_text(node.text, at) }
+  }
+}
+
+///|
 /// A scalar on one line, in the style it was written.
 fn scalar_text_of(node : Node) -> String {
   match node.style {
@@ -1106,7 +1433,8 @@ fn inline_text(node : Node) -> String? {
       for pair in pairs {
         guard inline_text(pair.0) is Some(k) else { return None }
         guard inline_text(pair.1) is Some(v) else { return None }
-        parts.push(props_prefix(pair.0) + k + ": " + props_prefix(pair.1) + v)
+        let sep = if pair.0.kind is Alias(_) { " : " } else { ": " }
+        parts.push(props_prefix(pair.0) + k + sep + props_prefix(pair.1) + v)
       }
       Some("{" + parts.join(", ") + "}")
     }
@@ -1115,7 +1443,14 @@ fn inline_text(node : Node) -> String? {
     _ =>
       match node.style {
         Literal(_) | Folded(_) => None
-        _ => Some(scalar_text_of(node))
+        // A scalar whose text holds a break is written over several lines, which
+        // only a block context can do: it needs a column to continue at.
+        _ =>
+          if index_of_unit(node.text, 0x0a) >= 0 {
+            None
+          } else {
+            Some(scalar_text_of(node))
+          }
       }
   }
 }
@@ -1130,6 +1465,7 @@ fn write_block_scalar(
   out : StringBuilder,
   node : Node,
   body_at : Int32,
+  parent : Int32,
 ) -> Unit {
   let (chomp, folded) = match node.style {
     Literal(n) => (n, false)
@@ -1137,6 +1473,13 @@ fn write_block_scalar(
     _ => (0, false)
   }
   out.write_char(if folded { '>' } else { '|' })
+  // Content whose first line begins with a space needs an indentation indicator:
+  // without one the reader takes that space for the indentation, and the value
+  // that comes back is missing it (§8.1.1.1).
+  let width = body_at - parent
+  if starts_indented(node.text) && width > 0 && width < 10 {
+    out.write_char((0x30 + width).unsafe_to_char())
+  }
   out.write_string(chomp_mark(chomp))
   out.write_char('\n')
   out.write_string(block_body(node.text, spaces(body_at), folded))
@@ -1147,10 +1490,32 @@ fn write_block_scalar(
 ///
 /// `indent` is how far a nested block is indented, and `from` is how far the root
 /// already is — a document embedded in another one needs the second.
+///
+/// A document that was written under an explicit `---` gets one back, on a line of
+/// its own; the comments above it stay above it.
 pub fn emit(node : Node, indent~ : Int32 = 2, from~ : Int32 = 0) -> String {
+  let out = StringBuilder()
+  let body = emit_body(node, indent, from)
+  out.write_string(body)
+  if node.closed {
+    out.write_string(spaces(from))
+    out.write_string("...")
+    out.write_char('\n')
+  }
+  out.to_string()
+}
+
+///|
+/// The document itself, without the `...` that may close it.
+fn emit_body(node : Node, indent : Int32, from : Int32) -> String {
   let out = StringBuilder()
   for comment in node.before {
     write_comment(out, comment, from)
+  }
+  if node.explicit {
+    out.write_string(spaces(from))
+    out.write_string("---")
+    out.write_char('\n')
   }
   match node.kind {
     Sequence(_) | Mapping(_) =>
@@ -1177,9 +1542,9 @@ pub fn emit(node : Node, indent~ : Int32 = 2, from~ : Int32 = 0) -> String {
       match node.style {
         Literal(_) | Folded(_) => {
           block = true
-          write_block_scalar(out, node, from + indent)
+          write_block_scalar(out, node, from + indent, from - 1)
         }
-        _ => out.write_string(scalar_text_of(node))
+        _ => out.write_string(scalar_written(node, from + indent))
       }
       write_note(out, node)
       if !block {
@@ -1261,7 +1626,7 @@ fn write_block(
                 // The indicator shares the `-` line and the body starts under it.
                 out.write_char(' ')
                 out.write_string(props_prefix(item))
-                write_block_scalar(out, item, inner + indent)
+                write_block_scalar(out, item, inner + indent, inner)
               }
               _ =>
                 match item.kind {
@@ -1283,13 +1648,26 @@ fn write_block(
                       out.write_char('\n')
                       write_block(out, item, indent, inner + indent)
                     }
-                  Mapping(_) => {
-                    // A block mapping under a `-` starts on the `-` line, which is
-                    // what makes `- key: value` a list of mappings.
-                    out.write_char(' ')
-                    out.write_string(props_prefix(item))
-                    write_block(out, item, indent, inner + indent, on_dash=true)
-                  }
+                  Mapping(_) =>
+                    if props_text(item).length() == 0 {
+                      // A block mapping under a `-` starts on the `-` line, which
+                      // is what makes `- key: value` a list of mappings.
+                      out.write_char(' ')
+                      write_block(
+                        out,
+                        item,
+                        indent,
+                        inner + indent,
+                        on_dash=true,
+                      )
+                    } else {
+                      // A tag or an anchor describes the mapping, so it takes the
+                      // `-` line and the mapping starts under it (§8.2.1).
+                      out.write_char(' ')
+                      out.write_string(props_text(item))
+                      out.write_char('\n')
+                      write_block(out, item, indent, inner + indent)
+                    }
                   _ => {
                     out.write_char('\n')
                     block_or_scalar(out, item, indent, inner + indent)
@@ -1328,6 +1706,11 @@ fn write_block(
           Some(text) => {
             out.write_string(props_prefix(key))
             out.write_string(text)
+            // A name runs to the next token, so an alias key needs the space that
+            // keeps its `:` out of the name (§7.1).
+            if key.kind is Alias(_) {
+              out.write_char(' ')
+            }
             out.write_char(':')
           }
           None => {
@@ -1355,7 +1738,7 @@ fn write_block(
                 // The indicator belongs on the key's line, and the body under it.
                 out.write_char(' ')
                 out.write_string(props_prefix(value))
-                write_block_scalar(out, value, inner + indent)
+                write_block_scalar(out, value, inner + indent, inner)
               }
               _ => {
                 // A block collection's properties belong on the key's line too, so
@@ -1399,9 +1782,9 @@ fn block_or_scalar(
       match node.style {
         Literal(_) | Folded(_) => {
           block = true
-          write_block_scalar(out, node, at + indent)
+          write_block_scalar(out, node, at + indent, at)
         }
-        _ => out.write_string(scalar_text_of(node))
+        _ => out.write_string(scalar_written(node, at + indent))
       }
       write_note(out, node)
       if !block {
@@ -1458,6 +1841,187 @@ fn write_note(out : StringBuilder, node : Node) -> Unit {
     }
     None => ()
   }
+}
+
+// -- the events a document stands for ------------------------------------------
+
+///|
+/// One document as the events a parser produces for it: `+DOC` down to `-DOC`,
+/// with a `+MAP`/`+SEQ` for a collection, `=VAL` for a scalar and `=ALI` for a
+/// reference, each nested one space further in than the event that opened it.
+///
+/// The notation is the YAML Test Suite's, which is where it is specified: the
+/// style a scalar was written in is the character before its text (`:`, `'`, `"`,
+/// `|`, `>`), a flow collection carries `{}` or `[]`, an anchor `&name` and a tag
+/// `<tag>` come before the value, and control characters are escaped.
+///
+/// This is the document as a parse rather than as a value: a key that is not a
+/// string, a key written twice, two documents in one stream — all of them have
+/// events, and none of them has a `Json`. A caller who wants to know whether two
+/// documents are the same *document* rather than the same value can compare these.
+pub fn Node::events(self : Node) -> String {
+  let out = StringBuilder()
+  write_event(out, 0, events_open(self))
+  events_into(out, self, 1)
+  write_event(out, 0, events_close(self))
+  out.to_string()
+}
+
+///|
+/// Every document's events, between the `+STR` and `-STR` that open and close a
+/// stream — one line per event, which is what makes two streams comparable line
+/// by line.
+pub fn events_all(nodes : Array[Node]) -> String {
+  let out = StringBuilder()
+  write_event(out, 0, "+STR")
+  for node in nodes {
+    write_event(out, 1, events_open(node))
+    events_into(out, node, 2)
+    write_event(out, 1, events_close(node))
+  }
+  write_event(out, 0, "-STR")
+  out.to_string()
+}
+
+///|
+/// The event that opens a document, with the `---` the document was written under.
+fn events_open(node : Node) -> String {
+  if node.explicit {
+    "+DOC ---"
+  } else {
+    "+DOC"
+  }
+}
+
+///|
+/// The event that closes a document, with the `...` that closed it.
+fn events_close(node : Node) -> String {
+  if node.closed {
+    "-DOC ..."
+  } else {
+    "-DOC"
+  }
+}
+
+///|
+/// One event, indented `depth` spaces.
+fn write_event(out : StringBuilder, depth : Int32, text : String) -> Unit {
+  for i = 0; i < depth; i = i + 1 {
+    out.write_char(' ')
+  }
+  out.write_string(text)
+  out.write_char('\n')
+}
+
+///|
+/// The events of one node and everything under it.
+fn events_into(out : StringBuilder, node : Node, depth : Int32) -> Unit {
+  let props = events_props(node)
+  match node.kind {
+    Sequence(items) => {
+      write_event(out, depth, "+SEQ" + events_flow(node) + props)
+      for item in items {
+        events_into(out, item, depth + 1)
+      }
+      write_event(out, depth, "-SEQ")
+    }
+    Mapping(pairs) => {
+      write_event(out, depth, "+MAP" + events_flow(node) + props)
+      for pair in pairs {
+        events_into(out, pair.0, depth + 1)
+        events_into(out, pair.1, depth + 1)
+      }
+      write_event(out, depth, "-MAP")
+    }
+    Alias(name) => write_event(out, depth, "=ALI *" + name)
+    _ =>
+      write_event(
+        out,
+        depth,
+        "=VAL" +
+        props +
+        " " +
+        event_style(node.style).to_string() +
+        event_text(node.text),
+      )
+  }
+}
+
+///|
+/// ` []` or ` {}` for a collection written in flow style, and nothing otherwise.
+fn events_flow(node : Node) -> String {
+  if !node.flow {
+    return ""
+  }
+  match node.kind {
+    Sequence(_) => " []"
+    Mapping(_) => " {}"
+    _ => ""
+  }
+}
+
+///|
+/// ` &anchor <tag>`, in that order — the notation's own, and the order a reader
+/// accepts them in either way (§6.9).
+fn events_props(node : Node) -> String {
+  let out = StringBuilder()
+  match node.anchor {
+    Some(name) => out.write_string(" &" + name)
+    None => ()
+  }
+  match node.tag {
+    Some(tag) => out.write_string(" <" + tag + ">")
+    None => ()
+  }
+  out.to_string()
+}
+
+///|
+/// The character the notation puts in front of a scalar to say how it was written.
+fn event_style(style : ScalarStyle) -> Char {
+  match style {
+    Plain => ':'
+    Single => '\''
+    Double => '"'
+    Literal(_) => '|'
+    Folded(_) => '>'
+  }
+}
+
+///|
+/// A scalar's text, with the characters an event cannot hold on one line escaped.
+fn event_text(text : String) -> String {
+  let out = StringBuilder()
+  for i = 0; i < text.length(); i = i + 1 {
+    let c = text[i].to_int()
+    if c == 0x5c {
+      out.write_string("\\\\")
+    } else if c == 0x00 {
+      out.write_string("\\0")
+    } else if c == 0x07 {
+      out.write_string("\\a")
+    } else if c == 0x08 {
+      out.write_string("\\b")
+    } else if c == 0x09 {
+      out.write_string("\\t")
+    } else if c == 0x0a {
+      out.write_string("\\n")
+    } else if c == 0x0b {
+      out.write_string("\\v")
+    } else if c == 0x0c {
+      out.write_string("\\f")
+    } else if c == 0x0d {
+      out.write_string("\\r")
+    } else if c == 0x1b {
+      out.write_string("\\e")
+    } else if c < 0x20 {
+      out.write_string("\\x")
+      out.write_string(hex_of(c))
+    } else {
+      out.write_char(text[i].unsafe_to_char())
+    }
+  }
+  out.to_string()
 }
 
 // -- the value a tree stands for -------------------------------------------------

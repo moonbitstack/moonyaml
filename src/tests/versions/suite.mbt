@@ -5,8 +5,9 @@
 //
 // The suite is written for YAML 1.2, so running it against 1.1 and 1.0 answers a
 // different question: not "is this right?" but "where does this version differ,
-// and is that where the version says it should?". The counts are pinned here and
-// in the README, so neither can drift from the other without failing.
+// and is that where the version says it should?". The counts are pinned in the
+// harness that asserts them, so a version that starts reading something new, or
+// stops, fails the run rather than quietly moving a number.
 
 ///|
 /// What one version made of the suite, read beside YAML 1.2.2.

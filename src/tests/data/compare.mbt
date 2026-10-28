@@ -62,3 +62,28 @@ pub fn shape(v : Json) -> Json {
     _ => Json::string("·")
   }
 }
+
+///|
+/// Whether two event streams are the same one, and where they part company if
+/// they are not.
+///
+/// The comparison is line by line because the notation is: an event per line,
+/// indented one space per level, so a difference is a line number a person can
+/// look at rather than two walls of text.
+pub fn same_events(got : String, want : String) -> String? {
+  let a = got.split("\n").to_array()
+  let b = want.split("\n").to_array()
+  let n = if a.length() < b.length() { a.length() } else { b.length() }
+  for i in 0..<n {
+    if a[i] != b[i] {
+      return Some("event \{i + 1}: `\{a[i]}` is not `\{b[i]}`")
+    }
+  }
+  if a.length() == b.length() {
+    None
+  } else if a.length() < b.length() {
+    Some("events end after \{a.length()} lines, expected \{b.length()}")
+  } else {
+    Some("\{a.length()} lines of events, expected \{b.length()}")
+  }
+}

@@ -429,6 +429,9 @@ fn Reader::until_gap(self : Reader) -> String {
 priv struct Props {
   anchor : String?
   tag : String?
+  /// Whether the properties the reader stopped at belong to the first key of the
+  /// mapping that follows rather than to the mapping itself.
+  key_line : Bool
 }
 
 ///|
@@ -441,6 +444,7 @@ fn Reader::props(
   let mut anchor = None
   let mut tag = None
   let mut moved = false
+  let mut key_line = false
   for ;; {
     if self.cur() == 0x26 {
       let at = self.at()
@@ -504,15 +508,22 @@ fn Reader::props(
         break
       }
       moved = true
-      // Another property, on its own line, is part of this node's properties.
+      // Another property, on its own line, is part of this node's properties —
+      // unless the line it is on is a `key:` line, which makes it the first key's
+      // (`&a4 !!map` above `&a5 !!str key5: value` is a mapping with two
+      // properties and a key with two of its own, §8.2.1).
       if self.cur() != 0x26 && self.cur() != 0x21 {
+        break
+      }
+      if self.key_line() {
+        key_line = true
         break
       }
     } else if self.pos == save.0 {
       break
     }
   }
-  { anchor, tag, }
+  { anchor, tag, key_line, }
 }
 
 ///|
@@ -575,19 +586,54 @@ fn Reader::tag(self : Reader) -> String raise Refused {
   let body = self.src[start:self.pos].to_owned()
   // `!!x` is the secondary handle; `!h!x` a named one; `!x` the primary.
   if body.length() > 0 && body[0].to_int() == 0x21 {
-    let suffix = body[1:].to_owned()
+    let suffix = unescape_tag(body[1:].to_owned())
     return prefix_of(self.handles, "!!", self.schema.secondary) + suffix
   }
   let bang = index_of_unit(body, 0x21)
   if bang >= 0 {
     let handle = "!" + body[0:bang].to_owned() + "!"
-    let suffix = body[bang + 1:].to_owned()
+    let suffix = unescape_tag(body[bang + 1:].to_owned())
     match self.handles.get(handle) {
       Some(p) => return p + suffix
       None => raise BadTag(at, handle)
     }
   }
-  prefix_of(self.handles, "!", self.schema.primary) + body
+  prefix_of(self.handles, "!", self.schema.primary) + unescape_tag(body)
+}
+
+///|
+/// A tag's suffix with its percent escapes read back (§6.8.2.2).
+///
+/// The shorthand a tag is written in (`!e!tag%21`) is a URI, so a character that
+/// has to be escaped to spell it — `!`, `#`, a space — arrives escaped, and the
+/// tag it names is the one with the character in it. The escape is a byte, so a
+/// multi-byte character is a run of them, and the run is read back as text.
+fn unescape_tag(text : String) -> String {
+  if index_of_unit(text, 0x25) < 0 {
+    return text
+  }
+  let bytes : Array[Byte] = []
+  let mut i = 0
+  while i < text.length() {
+    let c = text[i].to_int()
+    if c == 0x25 && i + 2 < text.length() {
+      let high = nibble(text[i + 1].to_int())
+      let low = nibble(text[i + 2].to_int())
+      match (high, low) {
+        (Some(h), Some(l)) => {
+          bytes.push(((h << 4) | l).to_byte())
+          i = i + 3
+          continue
+        }
+        _ => ()
+      }
+    }
+    bytes.push(c.to_byte())
+    i = i + 1
+  }
+  @utf8.decode(Bytes::from_array(bytes)) catch {
+    _ => text
+  }
 }
 
 ///|
@@ -725,6 +771,10 @@ fn Reader::body(
       if !self.schema.flow {
         raise Disallowed(self.at(), "flow style")
       }
+      // The collection may be the first key of the mapping the document is.
+      if self.flow_key() {
+        return self.block_map(self.column(), depth)
+      }
       if self.cur() == 0x5b {
         self.flow_seq(indent, depth)
       } else {
@@ -826,6 +876,69 @@ fn Reader::alias_line(self : Reader) -> Bool {
 }
 
 ///|
+/// Whether a `:` at the cursor is a pair whose key was not written.
+///
+/// In flow context a colon is an indicator only where nothing plain starts: a
+/// blank, a break, the end of the collection, or the end of the text follows it
+/// (§7.3.3). So `[: x]` has an empty key and `[:x]` has the scalar `:x` as its
+/// only entry.
+fn Reader::at_empty_key(self : Reader) -> Bool {
+  self.cur() == 0x3a &&
+  self.ahead(1) is (0x20 | 0x09 | 0x0a | 0x0d | 0x2c | 0x5d | 0x7d | -1)
+}
+
+///|
+/// Whether the flow collection at the cursor is the key of a pair rather than the
+/// node itself: `[a, b]: c` is a mapping, `[a, b]` is a sequence.
+///
+/// The lookahead is needed because a collection is read the way its brackets say,
+/// and which one it is only shows after the bracket that closes it. Quotes are
+/// followed so that a `]` inside a string is not mistaken for the end.
+fn Reader::flow_key(self : Reader) -> Bool {
+  let n = self.src.length()
+  let mut i = self.pos
+  let mut depth = 0
+  let mut quote = 0
+  while i < n {
+    let c = self.src[i].to_int()
+    if quote != 0 {
+      if c == 0x5c && quote == 0x22 {
+        i = i + 2
+        continue
+      }
+      if c == quote {
+        quote = 0
+      }
+      i = i + 1
+      continue
+    }
+    if c == 0x27 || c == 0x22 {
+      quote = c
+    } else if c == 0x5b || c == 0x7b {
+      depth = depth + 1
+    } else if c == 0x5d || c == 0x7d {
+      depth = depth - 1
+      if depth == 0 {
+        // The collection ends here: a `:` after it, and a space or the end of the
+        // line after that, makes it a key (§7.4.2).
+        let mut j = i + 1
+        while j < n &&
+              (self.src[j].to_int() == 0x20 || self.src[j].to_int() == 0x09) {
+          j = j + 1
+        }
+        if j < n && self.src[j].to_int() == 0x3a {
+          let next = if j + 1 < n { self.src[j + 1].to_int() } else { -1 }
+          return next is (0x20 | 0x09 | 0x0a | 0x0d | -1)
+        }
+        return false
+      }
+    }
+    i = i + 1
+  }
+  false
+}
+
+///|
 /// Whether the cursor sits at the start of a line holding one `key: value` pair.
 ///
 /// A lookahead, which does not move the cursor. The reader has to ask it when a
@@ -908,7 +1021,9 @@ fn Reader::key_line(self : Reader) -> Bool {
       return false
     }
     let next = if i + 1 < n { self.src[i + 1].to_int() } else { -1 }
-    if c == 0x3a && any && next is (0x20 | 0x09 | 0x0a | 0x0d | -1) {
+    // A colon at the start of the line is a pair whose key was not written, which
+    // is a key line like any other (§8.2.2).
+    if c == 0x3a && next is (0x20 | 0x09 | 0x0a | 0x0d | -1) {
       return true
     }
     if c == 0x23 && any && self.src[i - 1].to_int() is (0x20 | 0x09) {
@@ -1105,6 +1220,24 @@ fn Reader::block_map(
         self.bump()
         key = key_of(k, at)
         value = self.pair_value(indent, depth)
+      } else if self.cur() == 0x5b || self.cur() == 0x7b {
+        // A key may be a flow collection, which is a sequence or a mapping rather
+        // than a scalar that happens to start with a bracket (§7.4.2).
+        if !self.schema.flow {
+          raise Disallowed(self.at(), "flow style")
+        }
+        let k = if self.cur() == 0x5b {
+          self.flow_seq(indent, depth + 1)
+        } else {
+          self.flow_map(indent, depth + 1)
+        }
+        self.gap()
+        guard self.at_value_sep() else {
+          raise Unexpected(at, self.printable())
+        }
+        self.bump()
+        key = key_of(k, at)
+        value = self.pair_value(indent, depth)
       } else {
         let kline = self.line
         let (text, quoted) = self.scalar_text(Mode::Key, indent)
@@ -1183,10 +1316,10 @@ fn Reader::pair_value(
 ///|
 /// The mapping, with its merge sources folded in.
 ///
-/// Order is part of a document: PyYAML and ruamel.yaml both put the merged keys
-/// where the merge key was, with an explicit key that repeats one overriding the
-/// value without moving it. Doing the same here means a document read and written
-/// back keeps the shape its author wrote.
+/// Order is part of a document: the merged keys take the place the merge key had,
+/// and an explicit key that repeats one overrides the value without moving it. That
+/// is the order the document was written in, so a document read and written back
+/// keeps the shape its author gave it.
 fn merged(
   out : Map[String, Json],
   merges : Array[(At, Json)],
@@ -1233,7 +1366,10 @@ fn merge_into(
       for item in items {
         merge_into(out, item, at)
       }
-    _ => raise Unexpected(at, '?')
+    // A mapping whose key is a collection has no `Json` form: the tree's keys are
+    // strings, and a sequence is not a string. `parse` keeps such a document;
+    // `loads` says so rather than inventing a spelling for the key.
+    _ => raise Disallowed(at, "a key that is a collection")
   }
 }
 
@@ -1250,7 +1386,10 @@ fn key_of(v : Json, at : At) -> String raise Refused {
     True => "true"
     False => "false"
     Null => "null"
-    _ => raise Unexpected(at, '?')
+    // A mapping whose key is a collection has no `Json` form: the tree's keys are
+    // strings, and a sequence is not a string. `parse` keeps such a document;
+    // `loads` says so rather than inventing a spelling for the key.
+    _ => raise Disallowed(at, "a key that is a collection")
   }
 }
 
@@ -1465,8 +1604,11 @@ fn Reader::flow_gap(
   self.skip()
   if self.line != line &&
     !self.eof() &&
-    self.column() <= indent &&
+    self.indent() <= indent &&
     self.cur() != close {
+    // A tab is separation, not indentation (§5.5): a continuation line written
+    // with tabs alone has not been indented past the block that holds the
+    // collection, however far across the page it ends up.
     raise BadIndent(self.at())
   }
 }
@@ -1757,9 +1899,11 @@ fn Reader::fold(self : Reader, at : At, indent : Int32) -> String raise Refused 
   if self.eof() {
     raise Truncated(at)
   }
-  if breaks > 0 && self.column() <= indent {
+  if breaks > 0 && self.indent() <= indent {
     // A quoted scalar that runs on is a continuation of the node it belongs to, so
-    // it has to be indented past that node's block (§7.3.1).
+    // it has to be indented past that node's block (§7.3.1). A tab is not
+    // indentation (§5.5), so a continuation line written with nothing but tabs
+    // under a node at column zero has not been indented at all.
     raise BadIndent(self.at())
   }
   if self.at_marker() || self.at_end_marker() {
@@ -1833,9 +1977,11 @@ fn Reader::plain(
       out.write_string(piece)
       first = false
     } else if first && mode is Flow {
-      // Nothing plain starts with an indicator, and an empty entry is a fault.
+      // Nothing plain starts with an indicator, and an empty entry is a fault —
+      // except that a `:` may stand where a key was not written, which is a pair
+      // with an empty key rather than an empty entry (§7.4.2).
       let c = self.cur()
-      if c == 0x2c || c == 0x5d || c == 0x7d || c == 0x3a {
+      if c == 0x2c || c == 0x5d || c == 0x7d {
         raise Unexpected(self.at(), self.printable())
       }
     }
@@ -1874,7 +2020,7 @@ fn Reader::plain(
       break
     }
     if mode is Block {
-      if self.column() <= indent || self.opens_pair(indent) {
+      if self.indent() <= indent || self.opens_pair(indent) {
         self.pos = save.0
         self.line = save.1
         self.bol = save.2
@@ -1943,6 +2089,24 @@ fn Reader::tabbed(self : Reader) -> Bool {
     i = i + 1
   }
   false
+}
+
+///|
+/// How far the line is indented: the spaces in front of the cursor, and nothing
+/// else.
+///
+/// §5.5 is explicit that a tab is separation and never indentation, so a line
+/// written with four tabs is not indented four columns — it is not indented at
+/// all, and a continuation that needs to be past an indent of zero is not. Tabs
+/// after the spaces are separation, and are what `gap` skips.
+fn Reader::indent(self : Reader) -> Int32 {
+  let mut i = self.bol
+  let mut n = 0
+  while i < self.pos && self.src[i].to_int() == 0x20 {
+    n = n + 1
+    i = i + 1
+  }
+  n
 }
 
 ///|
@@ -2039,6 +2203,12 @@ fn Reader::block_parts(
       continue
     }
     if self.eof() {
+      // The text ended on a line that held nothing but the indentation of a
+      // content line that never came: it is an empty line, and an empty line is a
+      // break the chomping indicator decides the fate of (§8.1.1.2).
+      if width < 0 {
+        leading = leading + 1
+      }
       break
     }
     if width < 0 {
@@ -2301,8 +2471,8 @@ fn number(s : String, rules : Rules) -> Double? {
   }
   // `0o` and `0x` are whole integers or nothing; `0b` and a bare `0` are the older
   // spellings the rules switch on. A schema that spells octal as a leading zero is
-  // older than the `0o` spelling, so it does not have it: `0o14` is a string in 1.1,
-  // which is what PyYAML and libyaml make of it.
+  // older than the `0o` spelling, so it does not have it: `0o14` is the string it
+  // looks like under 1.1's rules (YAML 1.1 §10.3 has no such form).
   if rest.length() > 2 && rest[0].to_int() == 0x30 {
     let radix = match rest[1].to_int() {
       0x6f | 0x4f => if rules.octal { 0 } else { 8 }

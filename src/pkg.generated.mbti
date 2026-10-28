@@ -33,6 +33,8 @@ pub fn[T : ToJson] dumps_of_all(ArrayView[T], style? : Style, indent? : Int32, s
 
 pub fn emit(Node, indent? : Int32, from? : Int32) -> String
 
+pub fn events_all(Array[Node]) -> String
+
 pub let flow : Style
 
 pub let indent : Int32
@@ -156,9 +158,12 @@ pub(all) struct Node {
   tag : String?
   before : Array[String]
   after : String?
+  explicit : Bool
+  closed : Bool
 }
 pub fn Node::anchored(Self, String) -> Self
 pub fn Node::commented(Self, before~ : Array[String], after~ : String) -> Self
+pub fn Node::events(Self) -> String
 pub fn Node::in_flow(Self, Bool) -> Self
 pub fn Node::map(Array[(Self, Self)]) -> Self
 pub fn Node::of_json(Json) -> Self

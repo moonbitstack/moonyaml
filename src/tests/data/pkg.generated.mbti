@@ -8,6 +8,8 @@ pub fn expected(String) -> Json?
 
 pub fn same(Json, Json) -> Bool
 
+pub fn same_events(String, String) -> String?
+
 pub fn shape(Json) -> Json
 
 // Errors
@@ -16,15 +18,11 @@ pub fn shape(Json) -> Json
 pub(all) struct Case {
   id : String
   name : String
-  tags : String
   src : String
   docs : Array[String]
   comparable : Bool
   fail : Bool
-  anchors : Bool
-  aliases : Bool
-  tagged : Bool
-  flow : Bool
+  tree : String
 }
 
 // Type aliases

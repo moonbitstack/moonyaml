@@ -13,7 +13,7 @@ fn expected(name : String) -> (Int32, Int32, Int32, Int32)? {
   match name {
     "1.1" => Some((291, 1, 110, 0))
     "1.0" => Some((290, 2, 110, 0))
-    "strict" => Some((155, 25, 110, 112))
+    "strict" => Some((154, 25, 110, 113))
     _ => None
   }
 }

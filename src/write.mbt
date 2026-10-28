@@ -11,8 +11,11 @@
 /// whole of it fits in [`Style::width`], block otherwise. A collection of
 /// collections stays block, because that is the shape of a configuration file.
 pub(all) enum Layout {
+  /// One entry per line, indented.
   Block
+  /// `{a: 1}` and `[1, 2]`, which is JSON's own shape.
   Flow
+  /// Flow for a collection of scalars that fits in one line, block otherwise.
   Auto
 } derive(Eq, Debug)
 
@@ -29,8 +32,11 @@ pub extend Layout with Eq::{not_equal, equal}
 /// makes the output look written rather than generated. `Single` and `Double` are
 /// for a caller whose output feeds a second reader that is happier with one form.
 pub(all) enum Quotes {
+  /// Quote only a string that would otherwise read as something else.
   Minimal
+  /// Every string that has to be quoted gets `'`.
   Single
+  /// Every string that has to be quoted gets `"`, escapes and all.
   Double
 } derive(Eq, Debug)
 
@@ -52,7 +58,9 @@ pub(all) struct Style {
   /// The column past which a collection is no longer written on one line, and at
   /// which a long plain scalar is folded.
   width : Int32
+  /// How a collection is laid out. See [`Layout`].
   layout : Layout
+  /// Which quote a string gets when it needs one. See [`Quotes`].
   quotes : Quotes
   /// Whether a subtree written twice is written once with `&a1` and referred to by
   /// `*a1` after. Off for output that a person will edit by hand, because an anchor
@@ -72,8 +80,8 @@ pub extend Style with Eq::{not_equal, equal}
 ///|
 /// How much a nested level is indented.
 ///
-/// Two spaces: what Kubernetes manifests, Compose files and every configuration
-/// example in the wild use, and what a reader's eye is trained on.
+/// Two spaces: what almost every configuration file in the wild uses, and what a
+/// reader's eye is trained on.
 pub let indent : Int32 = 2
 
 ///|
@@ -820,11 +828,11 @@ pub fn dump(
 ///|
 /// A stream of documents, each opened by its own `---`.
 ///
-/// The separator goes before each document rather than between them. The two
-/// conventions are both in use — PyYAML and Go's `yaml.v3` write it only between,
-/// `kubectl` writes it before each — and this takes the one that stays correct
-/// under concatenation: two streams joined end to end still read as their
-/// documents, and appending one is appending lines. The reader accepts either.
+/// The separator goes before each document rather than between them, which is the
+/// one convention that stays correct under concatenation: two streams joined end to
+/// end still read as their documents, and appending one is appending lines. A
+/// reader of either convention reads this one — a marker before the first document
+/// is not an error anywhere — so nothing is given up by choosing it.
 pub fn dumps_all(
   values : ArrayView[Json],
   style~ : Style = style,
