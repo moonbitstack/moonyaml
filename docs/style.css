@@ -339,7 +339,7 @@ hr {
   margin: 1.6rem 0 0;
 }
 
-@media (max-width: 900px) {
+@media (width <= 900px) {
   .hero-split {
     /* minmax(0, …) rather than 1fr: a grid item's automatic minimum is the width
      * of the longest line of code inside it, which would push the page sideways. */
