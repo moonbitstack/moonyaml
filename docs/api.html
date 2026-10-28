@@ -1,0 +1,1019 @@
+<!DOCTYPE html>
+<html lang="en-IE">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>API — moonyaml</title>
+    <meta
+      name="description"
+      content="Every public type, value and function in moonyaml, with the signature the compiler produces and the comment that explains it."
+    />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⛰</text></svg>" />
+    <script>
+      // Set before the first paint, so the page never flashes the other theme.
+      (function () {
+        try {
+          var t = localStorage.getItem("theme");
+          if (t !== "dark" && t !== "light") {
+            t = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+          }
+          document.documentElement.setAttribute("data-theme", t);
+        } catch (e) {}
+      })();
+    </script>
+  </head>
+  <body>
+    <header class="top">
+      <div class="shell">
+        <a class="brand" href="index.html"><b>moonyaml</b><span>moonbitstack</span></a>
+        <nav class="main">
+          <a href="index.html">Overview</a>
+          <a href="docs.html">Guide</a>
+          <a href="api.html" aria-current="page">API</a>
+          <a href="examples.html">Examples</a>
+          <a href="https://github.com/moonbitstack/moonyaml">GitHub</a>
+        </nav>
+        <button class="theme" id="theme" type="button" aria-label="Switch theme">theme</button>
+      </div>
+    </header>
+
+    <div class="shell docs">
+      <aside class="toc">
+        <h4>Contents</h4>
+          <a href="#moonyaml">moonyaml</a>
+          <a href="#types">moonyaml · types</a>
+          <a href="#values">moonyaml · values</a>
+          <a href="#functions">moonyaml · functions</a>
+          <a href="#malformed">Malformed</a>
+          <a href="#refused">Refused</a>
+          <a href="#at">At</a>
+          <a href="#duplicates">Duplicates</a>
+          <a href="#flavor">Flavor</a>
+          <a href="#kind">Kind</a>
+          <a href="#layout">Layout</a>
+          <a href="#node">Node</a>
+          <a href="#quotes">Quotes</a>
+          <a href="#rules">Rules</a>
+          <a href="#scalarstyle">ScalarStyle</a>
+          <a href="#schema">Schema</a>
+          <a href="#style">Style</a>
+          <a href="#yaml11-yaml11">moonyaml/yaml11</a>
+          <a href="#yaml10-yaml10">moonyaml/yaml10</a>
+          <a href="#strict-strict">moonyaml/strict</a>
+          <a href="#any-any">moonyaml/any</a>
+      </aside>
+
+      <article class="doc api">
+<h2 id="moonyaml">moonyaml</h2>
+<p class="blurb">YAML 1.2.2's core schema, the writer, the document model, and the typed codec.</p>
+<h3 id="types">Types</h3>
+<div class="item" id="malformed">
+<pre class="sig"><code>pub(all) suberror Malformed {
+  Read(Refused)
+  Shape(@json.JsonDecodeError)
+} derive(@debug.Debug)</code></pre>
+<div class="prose"><p>Why a document did not become the value the caller asked for.</p>
+<p>Two things can go wrong, and they are different things: the YAML may not have been read at all, or it may have been read and not be the shape a type needs. Both carry where — the reader's position, or the path into the document — so a caller can say which line to look at.</p></div>
+<div class="field">
+<code class="name">Read(Refused)</code>
+<div class="prose"><p>The text is not YAML at all: see <a href="#refused"><code>Refused</code></a> for the rule it broke.</p></div>
+</div>
+<div class="field">
+<code class="name">Shape(@json.JsonDecodeError)</code>
+<div class="prose"><p>The document read fine and is not the shape the type asked for. The path is a JSON Pointer into what was read, <code>/servers/2/port</code>.</p></div>
+</div>
+</div>
+<div class="item" id="malformed-output">
+<pre class="sig"><code>pub fn Malformed::output(Self, &amp;Logger) -&gt; Unit</code></pre>
+<div class="prose"><p>The value &lt;code&gt;Show&lt;/code&gt; prints, written to the logger it is given.</p></div>
+</div>
+<div class="item" id="malformed-to_repr">
+<pre class="sig"><code>pub fn Malformed::to_repr(Self) -&gt; @debug.Repr</code></pre>
+<div class="prose"><p>The value as &lt;code&gt;Debug&lt;/code&gt; writes it, for a test's output.</p></div>
+</div>
+<div class="item" id="malformed-to_string">
+<pre class="sig"><code>pub fn Malformed::to_string(Self) -&gt; String</code></pre>
+<div class="prose"><p>The value as &lt;code&gt;Show&lt;/code&gt; writes it, for a person to read.</p></div>
+</div>
+<div class="item" id="pub-impl-show-for-malformed">
+<pre class="sig"><code>pub impl Show for Malformed</code></pre>
+<div class="prose"><p>An implementation of a trait, as the compiler generated it.</p></div>
+</div>
+<div class="item" id="refused">
+<pre class="sig"><code>pub(all) suberror Refused {
+  Unexpected(At, Char)
+  Truncated(At)
+  BadEscape(At)
+  BadIndent(At)
+  BadTag(At, String)
+  BadAnchor(At, String)
+  Repeated(At, String)
+  Trailing(At)
+  TooDeep(At)
+  Exceeded(at~ : At, limit~ : Int32, got~ : Int32)
+  BadUtf8(At)
+  Disallowed(At, String)
+} derive(Eq, @debug.Debug)</code></pre>
+<div class="prose"><p>Why a document was refused.</p>
+<p>YAML's own answer to ambiguity is to be permissive, which is how a configuration file comes to mean something other than what it looks like. This reader refuses instead: anything it cannot resolve to one reading is an error with a position, never a guess.</p></div>
+<div class="field">
+<code class="name">Unexpected(At, Char)</code>
+<div class="prose"><p>A character that cannot stand where it was written.</p></div>
+</div>
+<div class="field">
+<code class="name">Truncated(At)</code>
+<div class="prose"><p>The text ends inside a document: a quote, a bracket or a block scalar that was never closed.</p></div>
+</div>
+<div class="field">
+<code class="name">BadEscape(At)</code>
+<div class="prose"><p>A double-quoted escape that is not one of §5.7's.</p></div>
+</div>
+<div class="field">
+<code class="name">BadIndent(At)</code>
+<div class="prose"><p>A line indented to a column that lines up with nothing.</p></div>
+</div>
+<div class="field">
+<code class="name">BadTag(At, String)</code>
+<div class="prose"><p>A tag nobody has, or a node tagged as something it cannot be.</p></div>
+</div>
+<div class="field">
+<code class="name">BadAnchor(At, String)</code>
+<div class="prose"><p>An alias naming an anchor that was not written before it.</p></div>
+</div>
+<div class="field">
+<code class="name">Repeated(At, String)</code>
+<div class="prose"><p>A key written twice, under <code>duplicates: Reject</code>.</p></div>
+</div>
+<div class="field">
+<code class="name">Trailing(At)</code>
+<div class="prose"><p>A second document where one was asked for.</p></div>
+</div>
+<div class="field">
+<code class="name">TooDeep(At)</code>
+<div class="prose"><p>Nesting past <code>Flavor::depth</code>.</p></div>
+</div>
+<div class="field">
+<code class="name">Exceeded(at~ : At, limit~ : Int32, got~ : Int32)</code>
+<div class="prose"><p>Aliases expanding past <code>Flavor::budget</code>, with the limit and what it reached.</p></div>
+</div>
+<div class="field">
+<code class="name">BadUtf8(At)</code>
+<div class="prose"><p>Not UTF-8, from the byte entry points.</p></div>
+</div>
+<div class="field">
+<code class="name">Disallowed(At, String)</code>
+<div class="prose"><p>A construct this version does not have: a flow collection under the strict dialect, a tag or an anchor under a schema that has none, a key that is a collection where the value tree has only string keys.</p></div>
+</div>
+</div>
+<div class="item" id="refused-at">
+<pre class="sig"><code>pub fn Refused::at(Self) -&gt; At</code></pre>
+<div class="prose"><p>Where the refusal happened.</p>
+<p>Every variant carries a position, so a caller that wants to report the line and column does not have to match all twelve of them to get at it.</p></div>
+</div>
+<div class="item" id="refused-equal">
+<pre class="sig"><code>pub fn Refused::equal(Self, Self) -&gt; Bool</code></pre>
+<div class="prose"><p>Whether two values are the same, as &lt;code&gt;Eq&lt;/code&gt; defines it.</p></div>
+</div>
+<div class="item" id="refused-not_equal">
+<pre class="sig"><code>pub fn Refused::not_equal(Self, Self) -&gt; Bool</code></pre>
+<div class="prose"><p>The negation of &lt;code&gt;equal&lt;/code&gt;.</p></div>
+</div>
+<div class="item" id="refused-output">
+<pre class="sig"><code>pub fn Refused::output(Self, &amp;Logger) -&gt; Unit</code></pre>
+<div class="prose"><p>The value &lt;code&gt;Show&lt;/code&gt; prints, written to the logger it is given.</p></div>
+</div>
+<div class="item" id="refused-to_repr">
+<pre class="sig"><code>pub fn Refused::to_repr(Self) -&gt; @debug.Repr</code></pre>
+<div class="prose"><p>The value as &lt;code&gt;Debug&lt;/code&gt; writes it, for a test's output.</p></div>
+</div>
+<div class="item" id="refused-to_string">
+<pre class="sig"><code>pub fn Refused::to_string(Self) -&gt; String</code></pre>
+<div class="prose"><p>The value as &lt;code&gt;Show&lt;/code&gt; writes it, for a person to read.</p></div>
+</div>
+<div class="item" id="pub-impl-show-for-refused">
+<pre class="sig"><code>pub impl Show for Refused</code></pre>
+<div class="prose"><p>An implementation of a trait, as the compiler generated it.</p></div>
+</div>
+<div class="item" id="at">
+<pre class="sig"><code>pub(all) struct At {
+  at : Int32
+  line : Int32
+  column : Int32
+} derive(Eq, @debug.Debug)</code></pre>
+<div class="prose"><p>Where in the source something is: the offset in code units, and the line and column a person counts from one.</p>
+<p>Every refusal carries one, because a configuration file that will not load is read by a person who needs to know which line to look at.</p></div>
+<div class="field">
+<code class="name">at : Int32</code>
+<div class="prose"><p>The offset in code units from the start of the text.</p></div>
+</div>
+<div class="field">
+<code class="name">line : Int32</code>
+<div class="prose"><p>The line, counting from one.</p></div>
+</div>
+<div class="field">
+<code class="name">column : Int32</code>
+<div class="prose"><p>The column, counting from one.</p></div>
+</div>
+</div>
+<div class="item" id="at-equal">
+<pre class="sig"><code>pub fn At::equal(Self, Self) -&gt; Bool</code></pre>
+<div class="prose"><p>Whether two values are the same, as &lt;code&gt;Eq&lt;/code&gt; defines it.</p></div>
+</div>
+<div class="item" id="at-not_equal">
+<pre class="sig"><code>pub fn At::not_equal(Self, Self) -&gt; Bool</code></pre>
+<div class="prose"><p>The negation of &lt;code&gt;equal&lt;/code&gt;.</p></div>
+</div>
+<div class="item" id="at-output">
+<pre class="sig"><code>pub fn At::output(Self, &amp;Logger) -&gt; Unit</code></pre>
+<div class="prose"><p>The value &lt;code&gt;Show&lt;/code&gt; prints, written to the logger it is given.</p></div>
+</div>
+<div class="item" id="at-to_repr">
+<pre class="sig"><code>pub fn At::to_repr(Self) -&gt; @debug.Repr</code></pre>
+<div class="prose"><p>The value as &lt;code&gt;Debug&lt;/code&gt; writes it, for a test's output.</p></div>
+</div>
+<div class="item" id="at-to_string">
+<pre class="sig"><code>pub fn At::to_string(Self) -&gt; String</code></pre>
+<div class="prose"><p>The value as &lt;code&gt;Show&lt;/code&gt; writes it, for a person to read.</p></div>
+</div>
+<div class="item" id="pub-impl-show-for-at">
+<pre class="sig"><code>pub impl Show for At</code></pre>
+<div class="prose"><p>An implementation of a trait, as the compiler generated it.</p></div>
+</div>
+<div class="item" id="duplicates">
+<pre class="sig"><code>pub(all) enum Duplicates {
+  Last
+  First
+  Reject
+} derive(Eq, @debug.Debug)</code></pre>
+<div class="prose"><p>What to do when a mapping names the same key twice.</p>
+<p>YAML 1.2.2 §3.2.1.1 says the keys of a mapping are unique and leaves the handling of a duplicate to the processor. Every loader in reach takes the last one, which is what <code>Last</code> does; <code>First</code> and <code>Reject</code> are here because a configuration file with a key written twice is usually a mistake someone would rather be told about.</p></div>
+<div class="field">
+<code class="name">Last</code>
+<div class="prose"><p>The last value written for a key is the one the mapping has.</p></div>
+</div>
+<div class="field">
+<code class="name">First</code>
+<div class="prose"><p>The first value written for a key is the one the mapping has.</p></div>
+</div>
+<div class="field">
+<code class="name">Reject</code>
+<div class="prose"><p>A repeated key is refused, with the position of the second one.</p></div>
+</div>
+</div>
+<div class="item" id="duplicates-equal">
+<pre class="sig"><code>pub fn Duplicates::equal(Self, Self) -&gt; Bool</code></pre>
+<div class="prose"><p>Whether two values are the same, as &lt;code&gt;Eq&lt;/code&gt; defines it.</p></div>
+</div>
+<div class="item" id="duplicates-not_equal">
+<pre class="sig"><code>pub fn Duplicates::not_equal(Self, Self) -&gt; Bool</code></pre>
+<div class="prose"><p>The negation of &lt;code&gt;equal&lt;/code&gt;.</p></div>
+</div>
+<div class="item" id="duplicates-to_repr">
+<pre class="sig"><code>pub fn Duplicates::to_repr(Self) -&gt; @debug.Repr</code></pre>
+<div class="prose"><p>The value as &lt;code&gt;Debug&lt;/code&gt; writes it, for a test's output.</p></div>
+</div>
+<div class="item" id="flavor">
+<pre class="sig"><code>pub(all) struct Flavor {
+  depth : Int32
+  duplicates : Duplicates
+  aliases : Bool
+  budget : Int32
+} derive(Eq, @debug.Debug)</code></pre>
+<div class="prose"><p>How a document is read: the limits, and what to do with a duplicate key.</p>
+<p>The preset is <a href="#strict"><code>strict</code></a>. Build another with <a href="#flavor-new"><code>Flavor::new</code></a>, or update one in place with <code>{ ..strict, depth: 64 }</code>.</p></div>
+<div class="field">
+<code class="name">depth : Int32</code>
+<div class="prose"><p>How deep a document may nest. See <a href="#depth"><code>depth</code></a>.</p></div>
+</div>
+<div class="field">
+<code class="name">duplicates : Duplicates</code>
+<div class="prose"><p>What a key written twice means. See <a href="#duplicates"><code>Duplicates</code></a>.</p></div>
+</div>
+<div class="field">
+<code class="name">aliases : Bool</code>
+<div class="prose"><p>Whether an alias may be resolved at all: <code>false</code> refuses one outright, which is what a caller reading untrusted input may want.</p></div>
+</div>
+<div class="field">
+<code class="name">budget : Int32</code>
+<div class="prose"><p>How many nodes the aliases of one document may expand to. See <a href="#budget"><code>budget</code></a>.</p></div>
+</div>
+</div>
+<div class="item" id="flavor-equal">
+<pre class="sig"><code>pub fn Flavor::equal(Self, Self) -&gt; Bool</code></pre>
+<div class="prose"><p>Whether two values are the same, as &lt;code&gt;Eq&lt;/code&gt; defines it.</p></div>
+</div>
+<div class="item" id="flavor-new">
+<pre class="sig"><code>pub fn Flavor::new(depth? : Int32, duplicates? : Duplicates, aliases? : Bool, budget? : Int32) -&gt; Self</code></pre>
+<div class="prose"><p>A flavor by name, every knob with the preset's value.</p></div>
+</div>
+<div class="item" id="flavor-not_equal">
+<pre class="sig"><code>pub fn Flavor::not_equal(Self, Self) -&gt; Bool</code></pre>
+<div class="prose"><p>The negation of &lt;code&gt;equal&lt;/code&gt;.</p></div>
+</div>
+<div class="item" id="flavor-to_repr">
+<pre class="sig"><code>pub fn Flavor::to_repr(Self) -&gt; @debug.Repr</code></pre>
+<div class="prose"><p>The value as &lt;code&gt;Debug&lt;/code&gt; writes it, for a test's output.</p></div>
+</div>
+<div class="item" id="kind">
+<pre class="sig"><code>pub(all) enum Kind {
+  Null
+  Bool(Bool)
+  Number(Double)
+  Str(String)
+  Sequence(Array[Node])
+  Mapping(Array[(Node, Node)])
+  Alias(String)
+}</code></pre>
+<div class="prose"><p>What a node is.</p>
+<p>An alias is a node of its own rather than a copy of what it names: a document with an anchor and three aliases is three references, and writing it back as twelve copies would be a different document.</p></div>
+<div class="field">
+<code class="name">Null</code>
+<div class="prose"><p>An empty node: <code>~</code>, <code>null</code>, or nothing written at all.</p></div>
+</div>
+<div class="field">
+<code class="name">Bool(Bool)</code>
+<div class="prose"><p>A boolean, which only <code>true</code> and <code>false</code> are under the core schema.</p></div>
+</div>
+<div class="field">
+<code class="name">Number(Double)</code>
+<div class="prose"><p>A number, held as the double it denotes.</p></div>
+</div>
+<div class="field">
+<code class="name">Str(String)</code>
+<div class="prose"><p>A string: everything that is not one of the above and was not tagged.</p></div>
+</div>
+<div class="field">
+<code class="name">Sequence(Array[Node])</code>
+<div class="prose"><p>A sequence, in block or flow style.</p></div>
+</div>
+<div class="field">
+<code class="name">Mapping(Array[(Node, Node)])</code>
+<div class="prose"><p>A mapping, as the pairs it was written with: order is part of it, and a repeated key is kept twice.</p></div>
+</div>
+<div class="field">
+<code class="name">Alias(String)</code>
+<div class="prose"><p>A reference to a node written earlier, by the anchor it was given.</p></div>
+</div>
+</div>
+<div class="item" id="layout">
+<pre class="sig"><code>pub(all) enum Layout {
+  Block
+  Flow
+  Auto
+} derive(Eq, @debug.Debug)</code></pre>
+<div class="prose"><p>How a collection is laid out.</p>
+<p><code>Block</code> is the style a configuration file is written in: one entry per line, a person can read it and a diff shows one change per line. <code>Flow</code> is the brace and bracket form, which JSON shares and which a machine-generated file often wants. <code>Auto</code> picks per collection: flow when it holds nothing but scalars and the whole of it fits in <code>Style::width</code>, block otherwise. A collection of collections stays block, because that is the shape of a configuration file.</p></div>
+<div class="field">
+<code class="name">Block</code>
+<div class="prose"><p>One entry per line, indented.</p></div>
+</div>
+<div class="field">
+<code class="name">Flow</code>
+<div class="prose"><p><code>{a: 1}</code> and <code>[1, 2]</code>, which is JSON's own shape.</p></div>
+</div>
+<div class="field">
+<code class="name">Auto</code>
+<div class="prose"><p>Flow for a collection of scalars that fits in one line, block otherwise.</p></div>
+</div>
+</div>
+<div class="item" id="layout-equal">
+<pre class="sig"><code>pub fn Layout::equal(Self, Self) -&gt; Bool</code></pre>
+<div class="prose"><p>Whether two values are the same, as &lt;code&gt;Eq&lt;/code&gt; defines it.</p></div>
+</div>
+<div class="item" id="layout-not_equal">
+<pre class="sig"><code>pub fn Layout::not_equal(Self, Self) -&gt; Bool</code></pre>
+<div class="prose"><p>The negation of &lt;code&gt;equal&lt;/code&gt;.</p></div>
+</div>
+<div class="item" id="layout-to_repr">
+<pre class="sig"><code>pub fn Layout::to_repr(Self) -&gt; @debug.Repr</code></pre>
+<div class="prose"><p>The value as &lt;code&gt;Debug&lt;/code&gt; writes it, for a test's output.</p></div>
+</div>
+<div class="item" id="node">
+<pre class="sig"><code>pub(all) struct Node {
+  kind : Kind
+  text : String
+  style : ScalarStyle
+  flow : Bool
+  anchor : String?
+  tag : String?
+  before : Array[String]
+  after : String?
+  explicit : Bool
+  closed : Bool
+}</code></pre>
+<div class="prose"><p>One node of a document.</p></div>
+<div class="field">
+<code class="name">kind : Kind</code>
+<div class="prose"><p>What the node is.</p></div>
+</div>
+<div class="field">
+<code class="name">text : String</code>
+<div class="prose"><p>A scalar as it was written, before resolution: <code>014</code>, <code>yes</code>, <code>~</code>.</p>
+<p>Keeping the spelling is what makes a round trip a round trip: <code>014</code> read as twelve and written as <code>12</code> would be the same value in a different document.</p></div>
+</div>
+<div class="field">
+<code class="name">style : ScalarStyle</code>
+<div class="prose"><p>How a scalar was written. Meaningless for a collection.</p></div>
+</div>
+<div class="field">
+<code class="name">flow : Bool</code>
+<div class="prose"><p>Whether a collection was written in flow style.</p></div>
+</div>
+<div class="field">
+<code class="name">anchor : String?</code>
+<div class="prose"><p>The <code>&amp;name</code> the node was given, if it was given one.</p></div>
+</div>
+<div class="field">
+<code class="name">tag : String?</code>
+<div class="prose"><p>The tag written in front of the node, resolved through the document's <code>%TAG</code> handles — <code>tag:yaml.org,2002:str</code> rather than <code>!!str</code>.</p></div>
+</div>
+<div class="field">
+<code class="name">before : Array[String]</code>
+<div class="prose"><p>The comment lines written above this node, without their <code>#</code>.</p></div>
+</div>
+<div class="field">
+<code class="name">after : String?</code>
+<div class="prose"><p>The comment at the end of this node's last line, without its <code>#</code>.</p></div>
+</div>
+<div class="field">
+<code class="name">explicit : Bool</code>
+<div class="prose"><p>Whether the document this node heads was opened by an explicit <code>---</code>.</p>
+<p>The markers are the frame of a document rather than its content (§9.1.1), but they are written as deliberately as anything else, and a document that had them gets them back. Both are false for every node that is not a document's root.</p></div>
+</div>
+<div class="field">
+<code class="name">closed : Bool</code>
+<div class="prose"><p>Whether the document was closed by an explicit <code>...</code>.</p></div>
+</div>
+</div>
+<div class="item" id="node-anchored">
+<pre class="sig"><code>pub fn Node::anchored(Self, String) -&gt; Self</code></pre>
+<div class="prose"><p>This node, anchored.</p></div>
+</div>
+<div class="item" id="node-commented">
+<pre class="sig"><code>pub fn Node::commented(Self, before~ : Array[String], after~ : String) -&gt; Self</code></pre>
+<div class="prose"><p>This node, with the comments written around it.</p></div>
+</div>
+<div class="item" id="node-events">
+<pre class="sig"><code>pub fn Node::events(Self) -&gt; String</code></pre>
+<div class="prose"><p>One document as the events a parser produces for it: <code>+DOC</code> down to <code>-DOC</code>, with a <code>+MAP</code>/<code>+SEQ</code> for a collection, <code>=VAL</code> for a scalar and <code>=ALI</code> for a reference, each nested one space further in than the event that opened it.</p>
+<p>The notation is the YAML Test Suite's, which is where it is specified: the style a scalar was written in is the character before its text (<code>:</code>, <code>'</code>, <code>"</code>, <code>|</code>, <code>&gt;</code>), a flow collection carries <code>{}</code> or <code>[]</code>, an anchor <code>&amp;name</code> and a tag <code>&lt;tag&gt;</code> come before the value, and control characters are escaped.</p>
+<p>This is the document as a parse rather than as a value: a key that is not a string, a key written twice, two documents in one stream — all of them have events, and none of them has a <code>Json</code>. A caller who wants to know whether two documents are the same *document* rather than the same value can compare these.</p></div>
+</div>
+<div class="item" id="node-in_flow">
+<pre class="sig"><code>pub fn Node::in_flow(Self, Bool) -&gt; Self</code></pre>
+<div class="prose"><p>This node, written in flow style.</p></div>
+</div>
+<div class="item" id="node-map">
+<pre class="sig"><code>pub fn Node::map(Array[(Self, Self)]) -&gt; Self</code></pre>
+<div class="prose"><p>A block mapping.</p></div>
+</div>
+<div class="item" id="node-of_json">
+<pre class="sig"><code>pub fn Node::of_json(Json) -&gt; Self</code></pre>
+<div class="prose"><p>A tree for a <code>Json</code> value: the document a program would write for it.</p></div>
+</div>
+<div class="item" id="node-of_kind">
+<pre class="sig"><code>pub fn Node::of_kind(Kind, String) -&gt; Self</code></pre>
+<div class="prose"><p>A scalar of a known kind, keeping the spelling it was read from.</p></div>
+</div>
+<div class="item" id="node-same">
+<pre class="sig"><code>pub fn Node::same(Self, Self) -&gt; Bool</code></pre>
+<div class="prose"><p>Whether two documents would be written the same way.</p>
+<p>The comparison a round trip is: read, write, read again, and the second tree is the first one. Positions are not in the tree, so this is equality of content.</p></div>
+</div>
+<div class="item" id="node-scalar">
+<pre class="sig"><code>pub fn Node::scalar(String) -&gt; Self</code></pre>
+<div class="prose"><p>A plain scalar, which is how most of YAML is written.</p></div>
+</div>
+<div class="item" id="node-seq">
+<pre class="sig"><code>pub fn Node::seq(Array[Self]) -&gt; Self</code></pre>
+<div class="prose"><p>A block sequence.</p></div>
+</div>
+<div class="item" id="node-styled">
+<pre class="sig"><code>pub fn Node::styled(Self, ScalarStyle) -&gt; Self</code></pre>
+<div class="prose"><p>This node, written in a particular scalar style.</p></div>
+</div>
+<div class="item" id="node-tagged">
+<pre class="sig"><code>pub fn Node::tagged(Self, String) -&gt; Self</code></pre>
+<div class="prose"><p>This node, tagged.</p></div>
+</div>
+<div class="item" id="node-to_json">
+<pre class="sig"><code>pub fn Node::to_json(Self) -&gt; Json</code></pre>
+<div class="prose"><p>The <code>Json</code> this document denotes, with its aliases expanded.</p></div>
+</div>
+<div class="item" id="quotes">
+<pre class="sig"><code>pub(all) enum Quotes {
+  Minimal
+  Single
+  Double
+} derive(Eq, @debug.Debug)</code></pre>
+<div class="prose"><p>Which quote a string gets when it needs one.</p>
+<p><code>Minimal</code> quotes only what would otherwise read as something else, which is what makes the output look written rather than generated. <code>Single</code> and <code>Double</code> are for a caller whose output feeds a second reader that is happier with one form.</p></div>
+<div class="field">
+<code class="name">Minimal</code>
+<div class="prose"><p>Quote only a string that would otherwise read as something else.</p></div>
+</div>
+<div class="field">
+<code class="name">Single</code>
+<div class="prose"><p>Every string that has to be quoted gets <code>'</code>.</p></div>
+</div>
+<div class="field">
+<code class="name">Double</code>
+<div class="prose"><p>Every string that has to be quoted gets <code>"</code>, escapes and all.</p></div>
+</div>
+</div>
+<div class="item" id="quotes-equal">
+<pre class="sig"><code>pub fn Quotes::equal(Self, Self) -&gt; Bool</code></pre>
+<div class="prose"><p>Whether two values are the same, as &lt;code&gt;Eq&lt;/code&gt; defines it.</p></div>
+</div>
+<div class="item" id="quotes-not_equal">
+<pre class="sig"><code>pub fn Quotes::not_equal(Self, Self) -&gt; Bool</code></pre>
+<div class="prose"><p>The negation of &lt;code&gt;equal&lt;/code&gt;.</p></div>
+</div>
+<div class="item" id="quotes-to_repr">
+<pre class="sig"><code>pub fn Quotes::to_repr(Self) -&gt; @debug.Repr</code></pre>
+<div class="prose"><p>The value as &lt;code&gt;Debug&lt;/code&gt; writes it, for a test's output.</p></div>
+</div>
+<div class="item" id="rules">
+<pre class="sig"><code>pub(all) struct Rules {
+  yes_no : Bool
+  letters : Bool
+  octal : Bool
+  binary : Bool
+  underscores : Bool
+  sexagesimal : Bool
+  strings : Bool
+} derive(Eq, @debug.Debug)</code></pre>
+<div class="prose"><p>What a YAML version resolves an unquoted scalar to.</p>
+<p>The three released versions disagree with each other, and the disagreements are all here rather than in the scanner: 1.1 reads <code>yes</code> as a boolean, <code>014</code> as twelve and <code>1:30</code> as ninety, 1.2 reads all three as strings, and StrictYAML reads every scalar as a string whatever it looks like. A version is a set of rules over one reader, which is why this library has one parser and not four.</p>
+<p>A dialect nobody has published yet — a configuration language of your own, a pre-1.0 variant — is a <code>Rules</code> of your own, passed through <a href="#schema"><code>Schema</code></a>. Nothing here is closed.</p></div>
+<div class="field">
+<code class="name">yes_no : Bool</code>
+<div class="prose"><p><code>yes</code>/<code>no</code>/<code>on</code>/<code>off</code> are booleans (YAML 1.1 §10.3).</p></div>
+</div>
+<div class="field">
+<code class="name">letters : Bool</code>
+<div class="prose"><p><code>y</code>/<code>n</code>, in either case, are booleans — YAML 1.0 only; 1.1 dropped them.</p></div>
+</div>
+<div class="field">
+<code class="name">octal : Bool</code>
+<div class="prose"><p>A <code>0</code> prefix means octal: <code>014</code> is twelve (1.1 §10.3); 1.2 spells it <code>0o14</code>.</p></div>
+</div>
+<div class="field">
+<code class="name">binary : Bool</code>
+<div class="prose"><p><code>0b1010</code> is ten (1.1 §10.3).</p></div>
+</div>
+<div class="field">
+<code class="name">underscores : Bool</code>
+<div class="prose"><p><code>1_000</code> is a thousand (1.1 §10.3).</p></div>
+</div>
+<div class="field">
+<code class="name">sexagesimal : Bool</code>
+<div class="prose"><p><code>1:30</code> is ninety and <code>1:30.5</code> is ninety and a half (1.1 §10.3).</p></div>
+</div>
+<div class="field">
+<code class="name">strings : Bool</code>
+<div class="prose"><p>Every scalar is a string, whatever it looks like — StrictYAML's first rule, and the reason a StrictYAML document never surprises a reader.</p></div>
+</div>
+</div>
+<div class="item" id="rules-equal">
+<pre class="sig"><code>pub fn Rules::equal(Self, Self) -&gt; Bool</code></pre>
+<div class="prose"><p>Whether two values are the same, as &lt;code&gt;Eq&lt;/code&gt; defines it.</p></div>
+</div>
+<div class="item" id="rules-not_equal">
+<pre class="sig"><code>pub fn Rules::not_equal(Self, Self) -&gt; Bool</code></pre>
+<div class="prose"><p>The negation of &lt;code&gt;equal&lt;/code&gt;.</p></div>
+</div>
+<div class="item" id="rules-to_repr">
+<pre class="sig"><code>pub fn Rules::to_repr(Self) -&gt; @debug.Repr</code></pre>
+<div class="prose"><p>The value as &lt;code&gt;Debug&lt;/code&gt; writes it, for a test's output.</p></div>
+</div>
+<div class="item" id="scalarstyle">
+<pre class="sig"><code>pub(all) enum ScalarStyle {
+  Plain
+  Single
+  Double
+  Literal(Int32)
+  Folded(Int32)
+} derive(Eq)</code></pre>
+<div class="prose"><p>How a scalar was written.</p>
+<p>A block scalar carries the chomping indicator that was written with it, because <code>|</code> and <code>|-</code> are different strings at the end of a line.</p></div>
+<div class="field">
+<code class="name">Plain</code>
+<div class="prose"><p>Nothing around it: <code>one</code>.</p></div>
+</div>
+<div class="field">
+<code class="name">Single</code>
+<div class="prose"><p><code>'one'</code>, where a backslash is a backslash.</p></div>
+</div>
+<div class="field">
+<code class="name">Double</code>
+<div class="prose"><p><code>"one"</code>, the only form with escapes.</p></div>
+</div>
+<div class="field">
+<code class="name">Literal(Int32)</code>
+<div class="prose"><p><code>|</code> with its chomping indicator: the breaks are content, one per line.</p></div>
+</div>
+<div class="field">
+<code class="name">Folded(Int32)</code>
+<div class="prose"><p><code>&gt;</code> with its chomping indicator: the breaks fold, and a blank line spells one.</p></div>
+</div>
+</div>
+<div class="item" id="scalarstyle-equal">
+<pre class="sig"><code>pub fn ScalarStyle::equal(Self, Self) -&gt; Bool</code></pre>
+<div class="prose"><p>Whether two values are the same, as &lt;code&gt;Eq&lt;/code&gt; defines it.</p></div>
+</div>
+<div class="item" id="scalarstyle-not_equal">
+<pre class="sig"><code>pub fn ScalarStyle::not_equal(Self, Self) -&gt; Bool</code></pre>
+<div class="prose"><p>The negation of &lt;code&gt;equal&lt;/code&gt;.</p></div>
+</div>
+<div class="item" id="schema">
+<pre class="sig"><code>pub(all) struct Schema {
+  resolve : (String, Bool, String?, At, Rules) -&gt; Json raise Refused
+  rules : Rules
+  merge : Bool
+  tags : Bool
+  anchors : Bool
+  flow : Bool
+  secondary : String
+  primary : String
+}</code></pre>
+<div class="prose"><p>What a YAML version does that the scanner cannot decide for it.</p>
+<p>The scanner in this package is shared; what a version resolves a scalar to, and what it allows besides, is a <code>Schema</code>.</p>
+<p>The one in this package is <a href="#core"><code>core</code></a>, the core schema of §10.2. The <code>v11</code>, <code>v10</code>, <code>strict</code> and <code>any</code> packages beside it are each a schema over the same scanner, which is why a version is a resolver rather than a fork of the reader.</p></div>
+<div class="field">
+<code class="name">resolve : (String, Bool, String?, At, Rules) -&gt; Json raise Refused</code>
+<div class="prose"><p>A scalar as the value it denotes: its text, whether it was quoted, the tag it carried if any, where it was, and the rules that decide.</p></div>
+</div>
+<div class="field">
+<code class="name">rules : Rules</code>
+<div class="prose"><p>How this version resolves a scalar.</p></div>
+</div>
+<div class="field">
+<code class="name">merge : Bool</code>
+<div class="prose"><p>Whether a <code>&lt;&lt;</code> key merges its value into the mapping around it.</p></div>
+</div>
+<div class="field">
+<code class="name">tags : Bool</code>
+<div class="prose"><p>Whether a node may carry a tag.</p></div>
+</div>
+<div class="field">
+<code class="name">anchors : Bool</code>
+<div class="prose"><p>Whether a node may be named by an anchor and referred to by an alias.</p></div>
+</div>
+<div class="field">
+<code class="name">flow : Bool</code>
+<div class="prose"><p>Whether a collection may be written in flow style.</p></div>
+</div>
+<div class="field">
+<code class="name">secondary : String</code>
+<div class="prose"><p>The prefix a <code>!!</code> handle names when the document did not redefine it.</p></div>
+</div>
+<div class="field">
+<code class="name">primary : String</code>
+<div class="prose"><p>The prefix a <code>!</code> handle names when the document did not redefine it.</p></div>
+</div>
+</div>
+<div class="item" id="style">
+<pre class="sig"><code>pub(all) struct Style {
+  indent : Int32
+  width : Int32
+  layout : Layout
+  quotes : Quotes
+  anchors : Bool
+  sort : Bool
+} derive(Eq, @debug.Debug)</code></pre>
+<div class="prose"><p>How a document is written: the indentation, the line width, the layout, the quotes, and whether a repeated subtree is written once and referred to after.</p>
+<p>The preset is <a href="#style"><code>style</code></a>. Build another with <a href="#style-new"><code>Style::new</code></a>, or update one in place with <code>{ ..style, width: 120 }</code>.</p></div>
+<div class="field">
+<code class="name">indent : Int32</code>
+<div class="prose"><p>Spaces per level.</p></div>
+</div>
+<div class="field">
+<code class="name">width : Int32</code>
+<div class="prose"><p>The column past which a collection is no longer written on one line, and at which a long plain scalar is folded.</p></div>
+</div>
+<div class="field">
+<code class="name">layout : Layout</code>
+<div class="prose"><p>How a collection is laid out. See <a href="#layout"><code>Layout</code></a>.</p></div>
+</div>
+<div class="field">
+<code class="name">quotes : Quotes</code>
+<div class="prose"><p>Which quote a string gets when it needs one. See <a href="#quotes"><code>Quotes</code></a>.</p></div>
+</div>
+<div class="field">
+<code class="name">anchors : Bool</code>
+<div class="prose"><p>Whether a subtree written twice is written once with <code>&amp;a1</code> and referred to by <code>*a1</code> after. Off for output that a person will edit by hand, because an anchor is a thing to read around; on by default for files a program writes, where it turns a repeated block into one line.</p></div>
+</div>
+<div class="field">
+<code class="name">sort : Bool</code>
+<div class="prose"><p>Whether mapping keys are written in sorted order.</p></div>
+</div>
+</div>
+<div class="item" id="style-equal">
+<pre class="sig"><code>pub fn Style::equal(Self, Self) -&gt; Bool</code></pre>
+<div class="prose"><p>Whether two values are the same, as &lt;code&gt;Eq&lt;/code&gt; defines it.</p></div>
+</div>
+<div class="item" id="style-new">
+<pre class="sig"><code>pub fn Style::new(indent? : Int32, width? : Int32, layout? : Layout, quotes? : Quotes, anchors? : Bool, sort? : Bool) -&gt; Self</code></pre>
+<div class="prose"><p>A style by name, every knob with the preset's value.</p></div>
+</div>
+<div class="item" id="style-not_equal">
+<pre class="sig"><code>pub fn Style::not_equal(Self, Self) -&gt; Bool</code></pre>
+<div class="prose"><p>The negation of &lt;code&gt;equal&lt;/code&gt;.</p></div>
+</div>
+<div class="item" id="style-to_repr">
+<pre class="sig"><code>pub fn Style::to_repr(Self) -&gt; @debug.Repr</code></pre>
+<div class="prose"><p>The value as &lt;code&gt;Debug&lt;/code&gt; writes it, for a test's output.</p></div>
+</div>
+<h3 id="values">Values</h3>
+<div class="item" id="ancient_rules">
+<pre class="sig"><code>pub let ancient_rules : Rules</code></pre>
+<div class="prose"><p>YAML 1.0's, which is 1.1 plus the single letters <code>y</code> and <code>n</code>. The 1.1 revision removed them because a lone <code>n</code> is more often a name than a no.</p></div>
+</div>
+<div class="item" id="budget">
+<pre class="sig"><code>pub let budget : Int32</code></pre>
+<div class="prose"><p>How many nodes the aliases in one document may expand to.</p>
+<p>An alias can name a node that itself contains aliases, so a dozen lines can expand to billions of nodes: the "billion laughs" shape, which is what YAML's alias facility costs unless something counts. There is no published value to follow, so this takes the safe side — enough for any document anyone meant to write, far short of exhausting memory. <code>Flavor::new(budget=...)</code> raises it, and <code>aliases=false</code> refuses an alias outright.</p></div>
+</div>
+<div class="item" id="core">
+<pre class="sig"><code>pub let core : Schema</code></pre>
+<div class="prose"><p>The core schema of YAML 1.2.2 §10.2: what this package reads.</p></div>
+</div>
+<div class="item" id="core_rules">
+<pre class="sig"><code>pub let core_rules : Rules</code></pre>
+<div class="prose"><p>YAML 1.2's core schema: nothing but <code>true</code>/<code>false</code>, <code>null</code>, and the decimal, <code>0o</code> and <code>0x</code> numbers of §10.2.</p></div>
+</div>
+<div class="item" id="depth">
+<pre class="sig"><code>pub let depth : Int32</code></pre>
+<div class="prose"><p>How deep a document may nest.</p>
+<p>500 is deep enough for any configuration file ever written and shallow enough that a reader which walks the tree cannot be driven off the stack by one that was not. A document that nests deeper than this is not a configuration file, and is refused rather than read.</p></div>
+</div>
+<div class="item" id="flow">
+<pre class="sig"><code>pub let flow : Style</code></pre>
+<div class="prose"><p>The same document, all in flow style — the form JSON shares.</p></div>
+</div>
+<div class="item" id="indent">
+<pre class="sig"><code>pub let indent : Int32</code></pre>
+<div class="prose"><p>How much a nested level is indented.</p>
+<p>Two spaces: what almost every configuration file in the wild uses, and what a reader's eye is trained on.</p></div>
+</div>
+<div class="item" id="legacy_rules">
+<pre class="sig"><code>pub let legacy_rules : Rules</code></pre>
+<div class="prose"><p>YAML 1.1's type resolution, §10.3 of the 1.1 specification: the booleans, the octal and binary integers, the underscored numbers, and the base-60 form.</p></div>
+</div>
+<div class="item" id="strict">
+<pre class="sig"><code>pub let strict : Flavor</code></pre>
+<div class="prose"><p>The preset: refuse what is ambiguous, take the last of a repeated key, expand aliases within the budget.</p></div>
+</div>
+<div class="item" id="style">
+<pre class="sig"><code>pub let style : Style</code></pre>
+<div class="prose"><p>The preset: two-space block style, folded at 80 columns, quoting only what has to be quoted, anchors for what repeats.</p>
+<p>Block, not <code>Auto</code>: what this writes is a configuration file, and a configuration file is read one entry to a line. <code>Auto</code> is a knob for output whose reader is a machine.</p></div>
+</div>
+<div class="item" id="width">
+<pre class="sig"><code>pub let width : Int32</code></pre>
+<div class="prose"><p>The column a writer folds at.</p>
+<p>80: the width <code>yamllint</code> defaults to, which is itself the width of a terminal and of the Python PEP 8 convention the tooling around YAML grew up beside.</p></div>
+</div>
+<h3 id="functions">Functions</h3>
+<div class="item" id="declared_version">
+<pre class="sig"><code>pub fn declared_version(StringView) -&gt; (Int32, Int32)?</code></pre>
+<div class="prose"><p>The version a stream declares in its first <code>%YAML</code> directive, if it declares one.</p>
+<p>A reader may pick its rules from the document itself rather than from the caller, which is what <code>any</code> does. Only the first directive counts: §6.8.1 allows one per document, and the one that decides how the rest is read has to come before the rest.</p></div>
+</div>
+<div class="item" id="dump">
+<pre class="sig"><code>pub fn dump(Json, style? : Style, rules? : Rules, indent? : Int32, sort? : Bool) -&gt; Bytes</code></pre>
+<div class="prose"><p>The same, as UTF-8 bytes — the <code>s</code> on <a href="#dumps"><code>dumps</code></a> is the one Python puts on the form that answers a string.</p></div>
+</div>
+<div class="item" id="dump_all">
+<pre class="sig"><code>pub fn dump_all(ArrayView[Json], style? : Style, rules? : Rules, indent? : Int32, sort? : Bool) -&gt; Bytes</code></pre>
+<div class="prose"><p>The same, as UTF-8 bytes.</p></div>
+</div>
+<div class="item" id="dumps">
+<pre class="sig"><code>pub fn dumps(Json, style? : Style, rules? : Rules, indent? : Int32, sort? : Bool) -&gt; String</code></pre>
+<div class="prose"><p>Write a <code>Json</code> tree as a YAML document.</p>
+<p>Block style by default, which is what a configuration file is written in and what a person reads. A string is quoted only when plain would read back as something else — a number, a boolean, a null, or not at all — so the output looks like a file someone wrote rather than one a program emitted.</p>
+<p>This is the reason to have a writer at all: a generator that builds YAML by joining strings gets the escaping wrong the first time a value contains a colon, and gets the indentation wrong the first time a value is a list.</p>
+<p><code>style</code> says how; <code>indent</code> and <code>sort</code> override the two knobs that change from call to call. A flat parameter wins over the record — see "Configuration" in the README.</p></div>
+</div>
+<div class="item" id="dumps_all">
+<pre class="sig"><code>pub fn dumps_all(ArrayView[Json], style? : Style, rules? : Rules, indent? : Int32, sort? : Bool) -&gt; String</code></pre>
+<div class="prose"><p>A stream of documents, each opened by its own <code>---</code>.</p>
+<p>The separator goes before each document rather than between them, which is the one convention that stays correct under concatenation: two streams joined end to end still read as their documents, and appending one is appending lines. A reader of either convention reads this one — a marker before the first document is not an error anywhere — so nothing is given up by choosing it.</p></div>
+</div>
+<div class="item" id="dumps_of">
+<pre class="sig"><code>pub fn[T : ToJson] dumps_of(T, style? : Style, indent? : Int32, sort? : Bool) -&gt; String</code></pre>
+<div class="prose"><p>A value of type <code>T</code>, written as a YAML document.</p>
+<p>The other direction of <a href="#loads_as"><code>loads_as</code></a>, through the same <code>ToJson</code> trait, so a type that writes itself as JSON writes itself as YAML without knowing it.</p></div>
+</div>
+<div class="item" id="dumps_of_all">
+<pre class="sig"><code>pub fn[T : ToJson] dumps_of_all(ArrayView[T], style? : Style, indent? : Int32, sort? : Bool) -&gt; String</code></pre>
+<div class="prose"><p>A stream of values, each written as its own document.</p></div>
+</div>
+<div class="item" id="emit">
+<pre class="sig"><code>pub fn emit(Node, indent? : Int32, from? : Int32) -&gt; String</code></pre>
+<div class="prose"><p>Emit a document as YAML, keeping the styles and comments it was read with.</p>
+<p><code>indent</code> is how far a nested block is indented, and <code>from</code> is how far the root already is — a document embedded in another one needs the second.</p>
+<p>A document that was written under an explicit <code>---</code> gets one back, on a line of its own; the comments above it stay above it.</p></div>
+</div>
+<div class="item" id="events_all">
+<pre class="sig"><code>pub fn events_all(Array[Node]) -&gt; String</code></pre>
+<div class="prose"><p>Every document's events, between the <code>+STR</code> and <code>-STR</code> that open and close a stream — one line per event, which is what makes two streams comparable line by line.</p></div>
+</div>
+<div class="item" id="load">
+<pre class="sig"><code>pub fn load(BytesView, flavor? : Flavor, schema? : Schema, bom? : Bool) -&gt; Json raise Refused</code></pre>
+<div class="prose"><p>The one document in <code>src</code>, decoded as UTF-8.</p>
+<p><code>bom</code> skips a leading byte-order mark, which YAML 1.2.2 §5.2 allows at the start of a stream and which an editor on Windows will happily write.</p></div>
+</div>
+<div class="item" id="load_all">
+<pre class="sig"><code>pub fn load_all(BytesView, flavor? : Flavor, schema? : Schema, bom? : Bool) -&gt; Array[Json] raise Refused</code></pre>
+<div class="prose"><p>Every document in <code>src</code>, decoded as UTF-8.</p></div>
+</div>
+<div class="item" id="load_as">
+<pre class="sig"><code>pub fn[T : @json.FromJson] load_as(BytesView, flavor? : Flavor, schema? : Schema, bom? : Bool) -&gt; T raise Malformed</code></pre>
+<div class="prose"><p>The one document in <code>src</code>, decoded as UTF-8, as a value of type <code>T</code>.</p></div>
+</div>
+<div class="item" id="loads">
+<pre class="sig"><code>pub fn loads(StringView, flavor? : Flavor, schema? : Schema) -&gt; Json raise Refused</code></pre>
+<div class="prose"><p>The one document in <code>src</code>.</p>
+<p>Raises <code>Refused::Trailing</code> if a second document follows, which is what tells a caller expecting one file's worth of configuration that it got a stream.</p>
+<p><code>schema</code> says which YAML version reads it; the default is <a href="#core"><code>core</code></a>. A document that opens with <code>%YAML 1.1</code> is not read as 1.2 by default — pick the version, or let the <code>any</code> package pick it for you.</p></div>
+</div>
+<div class="item" id="loads_all">
+<pre class="sig"><code>pub fn loads_all(StringView, flavor? : Flavor, schema? : Schema) -&gt; Array[Json] raise Refused</code></pre>
+<div class="prose"><p>Every document in <code>src</code>, in order.</p>
+<p>A stream with no documents at all is an empty array, not a null: nothing is not the same as one document containing nothing.</p></div>
+</div>
+<div class="item" id="loads_as">
+<pre class="sig"><code>pub fn[T : @json.FromJson] loads_as(StringView, flavor? : Flavor, schema? : Schema) -&gt; T raise Malformed</code></pre>
+<div class="prose"><p>The one document in <code>src</code>, as a value of type <code>T</code>.</p>
+<pre><code>let config : Config = @moonyaml.loads_as(src)</code></pre>
+<p><code>T</code> is anything that implements core's <code>FromJson</code>, which is the same trait a JSON document is read through: a type written for <code>moonjson</code> needs no second implementation to be read from YAML. That is the point of reading into the same <code>Json</code> tree — the shape of a value is one question, and which text it arrived in is another.</p>
+<p>The default schema is 1.2's core. Read a 1.1 file with <code>@moonyaml/v11</code>'s schema, or let <code>@moonyaml/any</code> pick it from the document.</p></div>
+</div>
+<div class="item" id="parse">
+<pre class="sig"><code>pub fn parse(StringView, flavor? : Flavor, schema? : Schema) -&gt; Node raise Refused</code></pre>
+<div class="prose"><p>One document, as a tree.</p></div>
+</div>
+<div class="item" id="parse_all">
+<pre class="sig"><code>pub fn parse_all(StringView, flavor? : Flavor, schema? : Schema) -&gt; Array[Node] raise Refused</code></pre>
+<div class="prose"><p>Every document in the stream, as trees.</p>
+<p>A stream with nothing in it holds no document, which is what <code>loads_all</code> says too; <code>parse</code> is where a single document is owed, and it gives the null one.</p></div>
+</div>
+<div class="item" id="round_trip">
+<pre class="sig"><code>pub fn[T : @json.FromJson + ToJson] round_trip(StringView, adjust? : (T) -&gt; Unit, flavor? : Flavor, schema? : Schema) -&gt; String raise Malformed</code></pre>
+<div class="prose"><p>Read a document as <code>T</code>, let <code>adjust</code> change it, and write it back.</p>
+<p>The three steps a configuration loader actually takes: read what the user wrote, fill in what they left out, write the whole of it back. <code>adjust</code> is where the defaults go, and it is also what says which type this is — a call with no <code>adjust</code> cannot tell.</p></div>
+</div>
+<h2 id="yaml11-yaml11">moonyaml/yaml11</h2>
+<p class="blurb">YAML 1.1: <code>yes</code> and <code>no</code> as booleans, <code>014</code> as octal, sexagesimals, <code>1_000</code>, and the <code>&lt;&lt;</code> merge key.</p>
+<h3 id="yaml11-values">Values</h3>
+<div class="item" id="yaml11-rules">
+<pre class="sig"><code>pub let rules : @moonyaml.Rules</code></pre>
+<div class="prose"><p>How YAML 1.1 resolves a scalar: <code>yes</code>/<code>no</code>/<code>on</code>/<code>off</code> are booleans, <code>014</code> is twelve, <code>0b1010</code> is ten, <code>1_000</code> is a thousand, and <code>1:30</code> is ninety.</p></div>
+</div>
+<div class="item" id="yaml11-schema">
+<pre class="sig"><code>pub let schema : @moonyaml.Schema</code></pre>
+<div class="prose"><p>YAML 1.1's schema: the 1.1 types, and the merge key.</p>
+<p>The merge key is 1.1's own (§7.1) — a <code>&lt;&lt;</code> key whose value is a mapping, or a sequence of mappings, is folded into the mapping around it. It is not in 1.2, which is why this is a schema and not a default.</p></div>
+</div>
+<h3 id="yaml11-functions">Functions</h3>
+<div class="item" id="yaml11-dumps">
+<pre class="sig"><code>pub fn dumps(Json, style? : @moonyaml.Style, indent? : Int32, sort? : Bool) -&gt; String</code></pre>
+<div class="prose"><p>Write a value as YAML 1.1: a string that 1.1 would read back as a boolean or a number is quoted, so what is written is what is read.</p></div>
+</div>
+<div class="item" id="yaml11-dumps_all">
+<pre class="sig"><code>pub fn dumps_all(ArrayView[Json], style? : @moonyaml.Style, indent? : Int32, sort? : Bool) -&gt; String</code></pre>
+<div class="prose"><p>Every document, each opened by its own <code>---</code>.</p></div>
+</div>
+<div class="item" id="yaml11-load">
+<pre class="sig"><code>pub fn load(BytesView, flavor? : @moonyaml.Flavor, bom? : Bool) -&gt; Json raise @moonyaml.Refused</code></pre>
+<div class="prose"><p>The one document in <code>src</code>, decoded as UTF-8 and read as YAML 1.1.</p></div>
+</div>
+<div class="item" id="yaml11-load_all">
+<pre class="sig"><code>pub fn load_all(BytesView, flavor? : @moonyaml.Flavor, bom? : Bool) -&gt; Array[Json] raise @moonyaml.Refused</code></pre>
+<div class="prose"><p>Every document in <code>src</code>, decoded as UTF-8 and read as YAML 1.1.</p></div>
+</div>
+<div class="item" id="yaml11-loads">
+<pre class="sig"><code>pub fn loads(StringView, flavor? : @moonyaml.Flavor) -&gt; Json raise @moonyaml.Refused</code></pre>
+<div class="prose"><p>The one document in <code>src</code>, read as YAML 1.1.</p></div>
+</div>
+<div class="item" id="yaml11-loads_all">
+<pre class="sig"><code>pub fn loads_all(StringView, flavor? : @moonyaml.Flavor) -&gt; Array[Json] raise @moonyaml.Refused</code></pre>
+<div class="prose"><p>Every document in <code>src</code>, read as YAML 1.1.</p></div>
+</div>
+<h2 id="yaml10-yaml10">moonyaml/yaml10</h2>
+<p class="blurb">YAML 1.0's types, which 1.1 inherited but did not always keep: the single letters <code>y</code> and <code>n</code> are booleans here too.</p>
+<h3 id="yaml10-values">Values</h3>
+<div class="item" id="yaml10-rules">
+<pre class="sig"><code>pub let rules : @moonyaml.Rules</code></pre>
+<div class="prose"><p>How YAML 1.0 resolves a scalar: everything 1.1 does, and <code>y</code>/<code>n</code> — in either case — as booleans.</p>
+<p>The 1.1 revision dropped the single letters, because a lone <code>n</code> is more often a name than a no: <code>n: 1</code> in a table of columns is a heading, not a false. A file that says <code>%YAML 1.0</code> means the older reading.</p></div>
+</div>
+<div class="item" id="yaml10-schema">
+<pre class="sig"><code>pub let schema : @moonyaml.Schema</code></pre>
+<div class="prose"><p>YAML 1.0's schema.</p></div>
+</div>
+<h3 id="yaml10-functions">Functions</h3>
+<div class="item" id="yaml10-dumps">
+<pre class="sig"><code>pub fn dumps(Json, style? : @moonyaml.Style, indent? : Int32, sort? : Bool) -&gt; String</code></pre>
+<div class="prose"><p>Write a value as YAML 1.0.</p></div>
+</div>
+<div class="item" id="yaml10-dumps_all">
+<pre class="sig"><code>pub fn dumps_all(ArrayView[Json], style? : @moonyaml.Style, indent? : Int32, sort? : Bool) -&gt; String</code></pre>
+<div class="prose"><p>Every document, each opened by its own <code>---</code>.</p></div>
+</div>
+<div class="item" id="yaml10-load">
+<pre class="sig"><code>pub fn load(BytesView, flavor? : @moonyaml.Flavor, bom? : Bool) -&gt; Json raise @moonyaml.Refused</code></pre>
+<div class="prose"><p>The one document in <code>src</code>, decoded as UTF-8 and read as YAML 1.0.</p></div>
+</div>
+<div class="item" id="yaml10-load_all">
+<pre class="sig"><code>pub fn load_all(BytesView, flavor? : @moonyaml.Flavor, bom? : Bool) -&gt; Array[Json] raise @moonyaml.Refused</code></pre>
+<div class="prose"><p>Every document in <code>src</code>, decoded as UTF-8 and read as YAML 1.0.</p></div>
+</div>
+<div class="item" id="yaml10-loads">
+<pre class="sig"><code>pub fn loads(StringView, flavor? : @moonyaml.Flavor) -&gt; Json raise @moonyaml.Refused</code></pre>
+<div class="prose"><p>The one document in <code>src</code>, read as YAML 1.0.</p></div>
+</div>
+<div class="item" id="yaml10-loads_all">
+<pre class="sig"><code>pub fn loads_all(StringView, flavor? : @moonyaml.Flavor) -&gt; Array[Json] raise @moonyaml.Refused</code></pre>
+<div class="prose"><p>Every document in <code>src</code>, read as YAML 1.0.</p></div>
+</div>
+<h2 id="strict-strict">moonyaml/strict</h2>
+<p class="blurb">The strict dialect: block structure only, every scalar a string, no flow style, no anchors, no tags, no repeated keys.</p>
+<h3 id="strict-values">Values</h3>
+<div class="item" id="strict-flavor">
+<pre class="sig"><code>pub let flavor : @moonyaml.Flavor</code></pre>
+<div class="prose"><p>The preset for reading StrictYAML: a repeated key is a fault.</p>
+<p>StrictYAML rejects duplicate keys, and it is right to: a mapping that names the same key twice has no reading that a person could have predicted.</p></div>
+</div>
+<div class="item" id="strict-rules">
+<pre class="sig"><code>pub let rules : @moonyaml.Rules</code></pre>
+<div class="prose"><p>How StrictYAML resolves a scalar: as text, always.</p>
+<p>This is the whole of StrictYAML's first promise. <code>port: 8080</code> and <code>port: "8080"</code> are the same string, <code>enabled: yes</code> is the word, and the caller says what a value means by reading it through a schema of its own. Nothing in a document is a number, a boolean or a null because of how it is spelled.</p></div>
+</div>
+<div class="item" id="strict-schema">
+<pre class="sig"><code>pub let schema : @moonyaml.Schema</code></pre>
+<div class="prose"><p>StrictYAML's schema: text scalars, no tags, no anchors, no flow style.</p>
+<p>Each of those is a feature StrictYAML removes, and each is removed for the same reason — it makes what a document says depend on something other than the text in front of the reader:</p>
+<ul><li>a tag asks for a type the reader may not have;</li><li>an anchor makes one node appear in two places, so the document is no longer a</li></ul>
+<p>tree you can read top to bottom;</p>
+<ul><li>flow style packs structure onto a line, which is where the bracket-matching</li></ul>
+<p>mistakes come from.</p></div>
+</div>
+<h3 id="strict-functions">Functions</h3>
+<div class="item" id="strict-dumps">
+<pre class="sig"><code>pub fn dumps(Json, style? : @moonyaml.Style, indent? : Int32, sort? : Bool) -&gt; String</code></pre>
+<div class="prose"><p>Write a value as StrictYAML: every scalar is quoted unless it reads back as itself, because in StrictYAML there is nothing else it could be.</p></div>
+</div>
+<div class="item" id="strict-load">
+<pre class="sig"><code>pub fn load(BytesView, flavor? : @moonyaml.Flavor, bom? : Bool) -&gt; Json raise @moonyaml.Refused</code></pre>
+<div class="prose"><p>The one document in <code>src</code>, decoded as UTF-8 and read as StrictYAML.</p></div>
+</div>
+<div class="item" id="strict-loads">
+<pre class="sig"><code>pub fn loads(StringView, flavor? : @moonyaml.Flavor) -&gt; Json raise @moonyaml.Refused</code></pre>
+<div class="prose"><p>The one document in <code>src</code>, read as StrictYAML.</p></div>
+</div>
+<div class="item" id="strict-loads_all">
+<pre class="sig"><code>pub fn loads_all(StringView, flavor? : @moonyaml.Flavor) -&gt; Array[Json] raise @moonyaml.Refused</code></pre>
+<div class="prose"><p>Every document in <code>src</code>, read as StrictYAML.</p>
+<p>StrictYAML has no multi-document streams — a file is a document — so this is the same as <a href="#loads"><code>loads</code></a> and exists to keep call sites that do not care about the difference working across versions.</p></div>
+</div>
+<h2 id="any-any">moonyaml/any</h2>
+<p class="blurb">The version a document asks for with <code>%YAML</code>, and 1.2.2 when it asks for nothing.</p>
+<h3 id="any-functions">Functions</h3>
+<div class="item" id="any-load">
+<pre class="sig"><code>pub fn load(BytesView, flavor? : @moonyaml.Flavor, bom? : Bool) -&gt; Json raise @moonyaml.Refused</code></pre>
+<div class="prose"><p>The one document in <code>src</code>, decoded as UTF-8 and read with the rules it asks for.</p></div>
+</div>
+<div class="item" id="any-loads">
+<pre class="sig"><code>pub fn loads(StringView, flavor? : @moonyaml.Flavor) -&gt; Json raise @moonyaml.Refused</code></pre>
+<div class="prose"><p>The one document in <code>src</code>, read with the rules it asks for.</p></div>
+</div>
+<div class="item" id="any-loads_all">
+<pre class="sig"><code>pub fn loads_all(StringView, flavor? : @moonyaml.Flavor) -&gt; Array[Json] raise @moonyaml.Refused</code></pre>
+<div class="prose"><p>Every document in <code>src</code>, read with the rules the first of them asks for.</p></div>
+</div>
+<div class="item" id="any-of">
+<pre class="sig"><code>pub fn of(StringView) -&gt; @moonyaml.Schema raise @moonyaml.Refused</code></pre>
+<div class="prose"><p>The schema a stream asks for.</p>
+<p>A document that opens with <code>%YAML 1.1</code> says how it wants to be read, and 1.1's rules are not 1.2's: <code>yes</code> is a boolean there and a string here, <code>014</code> is twelve there and fourteen here. Reading it as 1.2 would silently give the caller a different value from the one the file's author wrote, which is the one failure mode a configuration loader must not have.</p>
+<p>No directive means 1.2, which is the current release and what a file written without a version marker means today. A directive naming a major version this library does not have is refused, rather than read with the wrong rules.</p></div>
+</div>
+      </article>
+    </div>
+
+    <footer class="bottom">
+      <div class="shell">
+        <span>moonyaml — Apache-2.0</span>
+        <a href="index.html">Overview</a>
+        <a href="docs.html">Guide</a>
+        <a href="examples.html">Examples</a>
+        <a href="https://github.com/moonbitstack/moonyaml">Source</a>
+      </div>
+    </footer>
+
+    <script src="main.js"></script>
+  </body>
+</html>

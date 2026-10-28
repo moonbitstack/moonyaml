@@ -6,7 +6,7 @@
     <title>moonyaml — YAML for MoonBit, in five versions and two shapes</title>
     <meta
       name="description"
-      content="moonyaml reads and writes YAML 1.2.2, 1.1, 1.0 and StrictYAML in MoonBit, as a value or as a document that keeps its comments."
+      content="moonyaml reads and writes YAML 1.2.2, 1.1, 1.0 and the strict dialect in MoonBit, as a value or as a document that keeps its comments."
     />
     <link rel="stylesheet" href="style.css" />
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⛰</text></svg>" />
@@ -30,6 +30,7 @@
         <nav class="main">
           <a href="index.html" aria-current="page">Overview</a>
           <a href="docs.html">Guide</a>
+          <a href="api.html">API</a>
           <a href="examples.html">Examples</a>
           <a href="https://github.com/moonbitstack/moonyaml">GitHub</a>
         </nav>
@@ -43,9 +44,9 @@
           <p class="eyebrow">YAML · MoonBit · Apache-2.0</p>
           <h1>YAML, read as a <em>value</em> and as a <em>document</em>.</h1>
           <p class="lede">
-            Five versions of the language — 1.2.2, 1.1, 1.0, StrictYAML, and one
-            that reads the version a file asks for — from a single scanner. A
-            version is a resolver here, not a fork. And every one of them can be
+            Five versions of the language — 1.2.2, 1.1, 1.0, the strict dialect,
+            and one that reads the version a file asks for — from a single scanner.
+            A version is a resolver here, not a fork. And every one of them can be
             written back, comments and all.
           </p>
           <div class="actions">
@@ -117,82 +118,18 @@
           </div>
           <div class="card">
             <span class="tag">budget</span>
-            <h3>Billion laughs, bounded</h3>
+            <h3>Alias expansion, bounded</h3>
             <p>
               An alias may name a node that holds aliases, so a dozen lines can
-              expand to billions. PyYAML and libyaml perform that faithfully.
-              Here the expansion is counted and capped.
+              expand to billions of nodes. Here the expansion is counted and
+              capped, and going over is an error with the count in it.
             </p>
           </div>
         </div>
       </section>
 
       <section class="block">
-        <p class="label">02 · the record</p>
-        <h2>Measured against the YAML Test Suite.</h2>
-        <div class="wrap">
-          <p>
-            The suite is 402 cases. This build reads <strong>363</strong> of them
-            as the suite says — 271 compared against the JSON the suite gives, 92
-            refused where it requires a refusal — and answers two differently.
-            Both of those are tab faults that PyYAML, libyaml and ruamel.yaml also
-            read; refusing them would refuse documents that load everywhere else.
-          </p>
-        </div>
-        <div class="table-wrap">
-          <table>
-          <thead>
-            <tr>
-              <th>Version</th>
-              <th class="num">Same as 1.2.2</th>
-              <th class="num">Reads differently</th>
-              <th class="num">Refused by both</th>
-              <th class="num">Refused only here</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td><code>moonyaml</code> — 1.2.2 core</td>
-              <td class="num">292</td>
-              <td class="num">0</td>
-              <td class="num">110</td>
-              <td class="num">0</td>
-            </tr>
-            <tr>
-              <td><code>yaml11</code> — 1.1</td>
-              <td class="num">291</td>
-              <td class="num">1</td>
-              <td class="num">110</td>
-              <td class="num">0</td>
-            </tr>
-            <tr>
-              <td><code>yaml10</code> — 1.0</td>
-              <td class="num">290</td>
-              <td class="num">2</td>
-              <td class="num">110</td>
-              <td class="num">0</td>
-            </tr>
-            <tr>
-              <td><code>strict</code> — StrictYAML</td>
-              <td class="num">155</td>
-              <td class="num">25</td>
-              <td class="num">110</td>
-              <td class="num">112</td>
-            </tr>
-          </tbody>
-        </table>
-        </div>
-        <p class="quiet">
-          Every version reads every document 1.2.2 reads, and refuses every
-          document it refuses. Those two columns being zero is the claim the
-          shared scanner makes — and the table is not prose: it is asserted by
-          <code>tests/versions</code> on every run, so a number that moves here
-          fails the build.
-        </p>
-      </section>
-
-      <section class="block">
-        <p class="label">03 · the same file, five readings</p>
+        <p class="label">02 · the same file, five readings</p>
         <h2>Where the versions part company.</h2>
         <div class="hero-split">
           <figure class="figure">
@@ -227,7 +164,7 @@
       </section>
 
       <section class="block">
-        <p class="label">04 · the document</p>
+        <p class="label">03 · the document</p>
         <h2>Write the file back the way it was written.</h2>
         <div class="hero-split">
           <figure class="figure">
@@ -266,21 +203,51 @@
             The comment above the document, the comment beside the image line,
             the anchor on <code>defaults</code>, the alias that stands for its
             value, the flow style of <code>ports</code>, the block scalar's
-            chomping indicator, the quoting of a string that had to be quoted —
-            all of it is in the tree, and all of it comes back. <code>to_json</code>
-            is there for the caller who wants the value instead, with the merge
-            key folded in and the alias resolved.
+            chomping indicator, the quoting of a string that had to be quoted,
+            the <code>---</code> a document opened with — all of it is in the
+            tree, and all of it comes back. <code>to_json</code> is there for the
+            caller who wants the value instead, with the merge key folded in and
+            the alias resolved.
           </p>
           <p>
-            The tree is checked against the value tree on the whole suite: 278 of
-            the 292 documents this reader reads agree value for value, and the 14
-            that do not are listed by id with their reason.
+            A mapping in that tree is a list of pairs rather than a map: order is
+            part of a document, a key is a node rather than a string, and a file
+            may have a sequence as a key or the same key twice. None of those
+            fits a <code>Json</code>, and all of them fit a document.
           </p>
-          <p class="quiet">
-            One thing the writer settles rather than keeps: the gap before a
-            trailing comment is written as a single space. Everything else in the
-            two figures above is exactly what went in.
-          </p>
+        </div>
+      </section>
+
+      <section class="block">
+        <p class="label">04 · the parse</p>
+        <h2>What it saw, before what it means.</h2>
+        <div class="hero-split">
+          <div>
+            <p>
+              A value loses the shape of the document: a quoted scalar and a plain
+              one are the same string, a flow collection and a block one are the
+              same list, and a repeated key is gone. <code>Node::events</code>
+              reports the parse instead — one line per event, the notation the
+              YAML Test Suite writes a parse tree in.
+            </p>
+            <p>
+              That is what a caller compares with when two documents should be the
+              same <em>document</em>: an edit that was supposed to change one value
+              either changed one value or it did not, and the events say which.
+            </p>
+          </div>
+          <figure class="figure">
+            <figcaption>events in, events out</figcaption>
+            <button class="copy" type="button">copy</button>
+            <pre><code><span class="c">+STR</span>
+<span class="c"> +DOC</span>
+<span class="c">  +MAP</span>
+<span class="k">   =VAL :name</span>
+<span class="k">   =VAL :web</span>
+<span class="c">  -MAP</span>
+<span class="c"> -DOC</span>
+<span class="c">-STR</span></code></pre>
+          </figure>
         </div>
       </section>
 
@@ -321,7 +288,15 @@ b: *y         <span class="c">2:4  no anchor named `y`</span></code></pre>
             <h3><a href="docs.html">The guide</a></h3>
             <p>
               Reading, writing, the five versions, the document tree, every knob
-              and where its default comes from.
+              and why its default is what it is.
+            </p>
+          </div>
+          <div class="card">
+            <span class="tag">reference</span>
+            <h3><a href="api.html">The API</a></h3>
+            <p>
+              Every public type, value and function, with the signature the
+              compiler produces and the comment that explains it.
             </p>
           </div>
           <div class="card">
@@ -332,14 +307,6 @@ b: *y         <span class="c">2:4  no anchor named `y`</span></code></pre>
               round trip that keeps its comments — with their real output.
             </p>
           </div>
-          <div class="card">
-            <span class="tag">source</span>
-            <h3><a href="https://github.com/moonbitstack/moonyaml">moonbitstack/moonyaml</a></h3>
-            <p>
-              Apache-2.0. The suite harnesses, the divergence lists and the CI
-              that runs them are all in the repository.
-            </p>
-          </div>
         </div>
       </section>
     </main>
@@ -348,9 +315,9 @@ b: *y         <span class="c">2:4  no anchor named `y`</span></code></pre>
       <div class="shell">
         <span>moonyaml — Apache-2.0</span>
         <a href="docs.html">Guide</a>
+        <a href="api.html">API</a>
         <a href="examples.html">Examples</a>
         <a href="https://github.com/moonbitstack/moonyaml">Source</a>
-        <a href="https://mooncakes.io/docs/#/moonbitstack/moonyaml/">API</a>
         <span class="spacer">built with MoonBit</span>
       </div>
     </footer>

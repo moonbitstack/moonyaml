@@ -1,14 +1,21 @@
 name: Site
 
-# The guide, the examples and the homepage are plain files in `docs/`, with no
-# build step: what is in the repository is what is served. Turn this on once in
-# Settings → Pages → Build and deployment → Source: GitHub Actions.
+# The homepage, the guide, the examples and the API reference are files in
+# `docs/`: what is in the repository is what is served, and there is no build
+# step to serve it. The one page a script writes is `docs/api.html`, so this job
+# regenerates it and refuses to deploy a page that has drifted from the
+# interfaces it describes.
+#
+# Turn Pages on once in Settings → Pages → Build and deployment → Source:
+# GitHub Actions, before pushing this workflow, so the first run is not a failure.
 on:
   push:
     branches:
       - master
     paths:
       - "docs/**"
+      - "src/**"
+      - "scripts/gen_api.py"
       - ".github/workflows/site.yml"
   workflow_dispatch:
 
@@ -34,6 +41,9 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: the API reference matches the interfaces
+        run: python3 scripts/gen_api.py --check
+
       - name: no broken relative links
         run: |
           python3 - <<'PY'
@@ -54,11 +64,13 @@ jobs:
           print("all relative links resolve")
           PY
 
-      - uses: actions/configure-pages@v5
+      - uses: actions/configure-pages@v6
+        with:
+          enablement: true
 
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: docs
 
       - id: deploy
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5

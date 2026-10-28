@@ -82,6 +82,45 @@ html {
   scroll-behavior: smooth;
 }
 
+html,
+button,
+input,
+textarea,
+select {
+  /* A reader should see the characters to type, not the ligature a font chose:
+   * form controls do not inherit this, so they are listed too. */
+  font-variant-ligatures: no-contextual;
+}
+
+/* The bar is part of the page: thin, in the rail's colour, no arrows. Chrome
+ * ignores ::-webkit-scrollbar once scrollbar-color is set, so the standard
+ * properties are given only to the browsers that have no such pseudo-element. */
+@supports not selector(::-webkit-scrollbar) {
+  :root {
+    scrollbar-width: thin;
+    scrollbar-color: var(--rail) transparent;
+  }
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--rail);
+  border: 2px solid var(--paper);
+  border-radius: 999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--ink-faint);
+}
+
 body {
   margin: 0;
   background: var(--paper);
@@ -581,7 +620,7 @@ td code {
   align-items: start;
 }
 
-@media (max-width: 860px) {
+@media (width <= 860px) {
   .docs {
     grid-template-columns: minmax(0, 1fr);
     gap: 1.6rem;
@@ -710,7 +749,7 @@ footer.bottom .spacer {
 
 /* -- small screens -------------------------------------------------------- */
 
-@media (max-width: 620px) {
+@media (width <= 620px) {
   body {
     font-size: 16px;
   }
@@ -744,4 +783,107 @@ footer.bottom .spacer {
     font-size: 12.5px;
     padding: 14px;
   }
+}
+
+/* -- the API reference ----------------------------------------------------
+ *
+ * The page is a list of signatures with what they mean, one item per public
+ * name. A signature is code and never wraps: it scrolls inside its own box, the
+ * same way the guide's examples do.
+ */
+
+.api h2 {
+  font-family: var(--mono);
+  font-size: 1.15rem;
+  letter-spacing: 0.01em;
+}
+
+.api h3 {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  font-weight: 500;
+  margin: 2.2rem 0 0.6rem;
+}
+
+.api .blurb {
+  color: var(--ink-soft);
+  max-width: 760px;
+}
+
+.api .item {
+  border-left: 2px solid var(--rail);
+  padding: 2px 0 2px 18px;
+  margin: 1.1rem 0 1.6rem;
+}
+
+.api .item:target {
+  border-left-color: var(--mark);
+}
+
+.api pre.sig {
+  background: none;
+  border: 0;
+  box-shadow: none;
+  padding: 0;
+  margin: 0 0 0.5rem;
+  font-size: 13px;
+  overflow-x: auto;
+}
+
+.api pre.sig code {
+  background: none;
+  border: 0;
+  padding: 0;
+  color: var(--accent);
+  white-space: pre;
+}
+
+.api .prose p {
+  margin: 0.4rem 0;
+  font-size: 15.5px;
+  max-width: 760px;
+}
+
+.api .prose ul {
+  margin: 0.4rem 0;
+  padding-left: 1.2rem;
+  font-size: 15.5px;
+}
+
+.api .prose pre {
+  margin: 0.6rem 0;
+  font-size: 12.5px;
+}
+
+.api .field {
+  border-top: 1px dashed var(--rule);
+  padding-top: 0.5rem;
+  margin-top: 0.7rem;
+}
+
+.api .field:first-of-type {
+  border-top: 0;
+}
+
+.api .field .name {
+  background: none;
+  border: 0;
+  padding: 0;
+  font-size: 12.5px;
+  color: var(--ink);
+}
+
+.api .field .prose p {
+  font-size: 14.5px;
+  color: var(--ink-soft);
+  margin: 0.15rem 0 0;
+}
+
+aside.toc a {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }

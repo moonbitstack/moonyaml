@@ -6,7 +6,7 @@
     <title>Guide — moonyaml</title>
     <meta
       name="description"
-      content="Reading and writing YAML in MoonBit: values, documents, the five versions, typed decoding, the writer's knobs, and every default with its provenance."
+      content="Reading and writing YAML in MoonBit: values, documents, the five versions, typed decoding, the writer's knobs, and every default with its reason."
     />
     <link rel="stylesheet" href="style.css" />
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⛰</text></svg>" />
@@ -30,6 +30,7 @@
         <nav class="main">
           <a href="index.html">Overview</a>
           <a href="docs.html" aria-current="page">Guide</a>
+          <a href="api.html">API</a>
           <a href="examples.html">Examples</a>
           <a href="https://github.com/moonbitstack/moonyaml">GitHub</a>
         </nav>
@@ -42,14 +43,17 @@
         <h4>Contents</h4>
         <a href="#install">Install</a>
         <a href="#reading">Reading a value</a>
+        <a href="#streams">Streams and files</a>
         <a href="#versions">The five versions</a>
+        <a href="#strict">The strict dialect</a>
         <a href="#documents">The document tree</a>
+        <a href="#writing">Writing a document back</a>
+        <a href="#events">Comparing documents</a>
         <a href="#typed">Typed values</a>
-        <a href="#writing">Writing</a>
+        <a href="#dumping">Writing a value</a>
         <a href="#defaults">Changing a default</a>
         <a href="#refusals">Refusals</a>
-        <a href="#suite">The test suite</a>
-        <a href="#api">API at a glance</a>
+        <a href="#next">Where to go next</a>
       </aside>
 
       <article class="doc">
@@ -79,7 +83,7 @@
             </tr>
             <tr>
               <td><code>moonyaml/strict</code></td>
-              <td>StrictYAML: block structure only, every scalar a string</td>
+              <td>The strict dialect: block structure only, every scalar a string</td>
             </tr>
             <tr>
               <td><code>moonyaml/any</code></td>
@@ -97,10 +101,9 @@
 
         <h2 id="reading">Reading a value</h2>
         <p>
-          <code>loads</code> returns a <code>Json</code> — the same tree
-          <code>@json</code> and every other reader in this family use. Mappings
-          become objects, sequences arrays, and a scalar becomes whatever the
-          schema says its text means.
+          <code>loads</code> returns a <code>Json</code>. Mappings become objects,
+          sequences arrays, and a scalar becomes whatever the schema says its text
+          means.
         </p>
         <pre><code><span class="k">let</span> config = @moonyaml.loads(
   #|<span class="k">server:</span>
@@ -109,7 +112,7 @@
   #|<span class="k">tags:</span> [http, native]
 )
 
-match config {
+<span class="k">match</span> config {
   Json::Object(m) =&gt; println(m.get(<span class="s">"server"</span>).unwrap().stringify())
   _ =&gt; ()
 }</code></pre>
@@ -128,63 +131,121 @@ match config {
           is what 1.2 says they are. Quoting something makes it a string whatever
           it looks like, and a tag overrides the schema.
         </p>
+        <pre><code>@moonyaml.loads(<span class="s">"a: yes\nb: 014\nc: 12:30\n"</span>).stringify()
+<span class="c">// {"a":"yes","b":14,"c":"12:30"}</span>
+
+@moonyaml.loads(<span class="s">"a: [1, 2, 3]\nb: {x: 1}\n"</span>).stringify()
+<span class="c">// {"a":[1,2,3],"b":{"x":1}}</span></code></pre>
+
+        <h2 id="streams">Streams and files</h2>
+        <p>
+          A file may hold several documents, each introduced by <code>---</code>
+          and optionally closed by <code>...</code>. <code>loads_all</code> reads
+          all of them; <code>load</code> takes the bytes and decodes UTF-8 first,
+          with the error a byte-level one when it is not.
+        </p>
+        <pre><code><span class="k">let</span> docs = @moonyaml.loads_all(
+  #|<span class="k">---</span>
+  #|<span class="k">first:</span> <span class="n">1</span>
+  #|<span class="k">---</span>
+  #|<span class="k">second:</span> <span class="n">2</span>
+)
+println(docs.length())  <span class="c">// 2</span>
+
+<span class="k">let</span> from_disk = @moonyaml.load(bytes)   <span class="c">// one document</span>
+<span class="k">let</span> all = @moonyaml.load_all(bytes)      <span class="c">// every document</span></code></pre>
+        <div class="note">
+          <p>
+            <b>A BOM is not content.</b> <code>load</code> skips one by default,
+            because an editor on Windows writes one and a file that begins with
+            three bytes nobody typed is not a file that should fail to load. Pass
+            <code>bom=false</code> to refuse it instead.
+          </p>
+        </div>
 
         <h2 id="versions">The five versions</h2>
         <p>
           The grammar does not differ between versions; what a scalar means does.
-          So the scanner is shared and the version is a resolver, which is why
-          this table can be a measurement rather than a claim.
+          So the scanner is shared and the version is a resolver, which is why a
+          version is a value you can pass rather than a branch you have to write.
         </p>
         <div class="table-wrap">
           <table>
           <thead>
             <tr>
               <th>Version</th>
-              <th>Same as 1.2.2</th>
-              <th>Reads differently</th>
-              <th>Refused by both</th>
-              <th>Refused only here</th>
+              <th><code>yes</code></th>
+              <th><code>014</code></th>
+              <th><code>0o14</code></th>
+              <th><code>12:30</code></th>
+              <th><code>1_000</code></th>
             </tr>
           </thead>
           <tbody>
-            <tr><td><code>moonyaml</code> — 1.2.2 core</td><td class="num">292</td><td class="num">0</td><td class="num">110</td><td class="num">0</td></tr>
-            <tr><td><code>yaml11</code> — 1.1</td><td class="num">291</td><td class="num">1</td><td class="num">110</td><td class="num">0</td></tr>
-            <tr><td><code>yaml10</code> — 1.0</td><td class="num">290</td><td class="num">2</td><td class="num">110</td><td class="num">0</td></tr>
-            <tr><td><code>strict</code> — StrictYAML</td><td class="num">155</td><td class="num">25</td><td class="num">110</td><td class="num">112</td></tr>
+            <tr><td><code>moonyaml</code> — 1.2.2</td><td>string</td><td>14</td><td>12</td><td>string</td><td>string</td></tr>
+            <tr><td><code>yaml11</code> — 1.1</td><td><code>true</code></td><td>12</td><td>string</td><td>750</td><td>1000</td></tr>
+            <tr><td><code>yaml10</code> — 1.0</td><td><code>true</code></td><td>12</td><td>string</td><td>750</td><td>1000</td></tr>
+            <tr><td><code>strict</code></td><td>string</td><td>string</td><td>string</td><td>string</td><td>string</td></tr>
           </tbody>
         </table>
         </div>
         <p>Each is a value of the same shape, so a caller can take one as a parameter:</p>
         <pre><code><span class="k">let</span> config = @yaml11.loads(src)      <span class="c">// yes is a boolean here</span>
-<span class="k">let</span> legacy = @yaml10.loads(src)
-<span class="k">let</span> plain  = @strict.loads(src)      <span class="c">// and every scalar is a string</span>
+<span class="k">let</span> legacy = @yaml10.loads(src)      <span class="c">// and y is one too</span>
+<span class="k">let</span> plain  = @strict.loads(src)      <span class="c">// every scalar is a string</span>
 <span class="k">let</span> asked  = @any.loads(src)         <span class="c">// %YAML 1.1 at the top decides</span></code></pre>
         <p>
           <code>any</code> is the only package that guesses, and it guesses once,
           from the document, at the top. A <code>%YAML 1.1</code> directive makes
           it read as 1.1; <code>%YAML 1.2</code> or no directive at all makes it
           1.2.2. A directive naming a version it does not have is refused rather
-          than approximated.
+          than approximated. <code>declared_version(src)</code> is that first
+          directive, for a caller who would rather ask than delegate.
         </p>
         <div class="note">
           <p>
             <b>Picking one.</b> Read your own files with <code>moonyaml</code>.
             Read files you did not write with <code>any</code>. Reach for
             <code>yaml11</code> when a file says <code>yes:</code> and means a
-            boolean — Ansible, older Compose files, anything that grew up in the
-            2000s — and say so in the module that reads it.
+            boolean — a playbook, an older compose file, anything that grew up in
+            the 2000s — and say so in the module that reads it.
           </p>
         </div>
+
+        <h2 id="strict">The strict dialect</h2>
+        <p>
+          <code>strict</code> is not a version of YAML with different scalars: it
+          is a smaller language. Block structure only, every scalar a string, no
+          flow collections, no anchors or aliases, no tags, and a key written
+          twice is a fault rather than a decision.
+        </p>
+        <pre><code>@strict.loads(<span class="s">"port: 8080\nenabled: yes\n"</span>).stringify()
+<span class="c">// {"port":"8080","enabled":"yes"}</span>
+
+@strict.loads(<span class="s">"list: [1, 2]\n"</span>)
+<span class="c">// refused — 1:7: flow style is not allowed here</span>
+
+@strict.loads(<span class="s">"a: &amp;x 1\nb: *x\n"</span>)
+<span class="c">// refused — 1:4: an anchor is not allowed here</span></code></pre>
+        <p>
+          What it buys is a file that cannot say anything surprising: a value that
+          looks like a number is the text of that number, and a reader that wants
+          an integer has to say so. <code>strict.schema</code> and
+          <code>strict.flavor</code> are the two records it is built from, for a
+          caller who wants to start from them.
+        </p>
 
         <h2 id="documents">The document tree</h2>
         <p>
           <code>loads</code> answers what a file means. <code>parse</code>
           answers what it says. The difference is a <code>Node</code>, which keeps
           the comment above a key, the comment beside a value, the quoting, the
-          flow style, the anchor and the tag — so the file can be written back.
+          flow style, the anchor, the tag, and whether the document was opened by
+          a <code>---</code> or closed by a <code>...</code> — so the file can be
+          written back.
         </p>
         <pre><code><span class="k">let</span> doc = @moonyaml.parse(src)
-println(@moonyaml.emit(doc))   <span class="c">// the same document, byte for byte</span>
+println(@moonyaml.emit(doc))        <span class="c">// the same document</span>
 println(doc.to_json().stringify())  <span class="c">// what it means</span></code></pre>
         <div class="table-wrap">
           <table>
@@ -193,22 +254,23 @@ println(doc.to_json().stringify())  <span class="c">// what it means</span></cod
           </thead>
           <tbody>
             <tr><td><code>kind</code></td><td><code>Null</code>, <code>Bool</code>, <code>Number</code>, <code>Str</code>, <code>Sequence</code>, <code>Mapping</code>, or <code>Alias(name)</code></td></tr>
-            <tr><td><code>text</code></td><td>The scalar's text exactly as written — trailing spaces, tabs and all</td></tr>
-            <tr><td><code>style</code></td><td><code>Plain</code>, <code>Single</code>, <code>Double</code>, <code>Literal(n)</code>, <code>Folded(n)</code>, where <code>n</code> is the explicit indentation or 0</td></tr>
+            <tr><td><code>text</code></td><td>The scalar's text exactly as written — <code>014</code>, <code>yes</code>, <code>~</code></td></tr>
+            <tr><td><code>style</code></td><td><code>Plain</code>, <code>Single</code>, <code>Double</code>, <code>Literal(n)</code>, <code>Folded(n)</code>, where <code>n</code> is the chomping indicator</td></tr>
             <tr><td><code>flow</code></td><td>Whether the collection was written <code>{…}</code>/<code>[…]</code></td></tr>
             <tr><td><code>anchor</code>, <code>tag</code></td><td>The <code>&amp;name</code> and the resolved tag, or <code>None</code></td></tr>
             <tr><td><code>before</code>, <code>after</code></td><td>The comments above the node, and the one after it on its own line — each without its <code>#</code></td></tr>
+            <tr><td><code>explicit</code>, <code>closed</code></td><td>Whether the document this node heads was opened by a <code>---</code> or closed by a <code>...</code></td></tr>
           </tbody>
         </table>
         </div>
         <p>
           A mapping is an <code>Array[(Node, Node)]</code>, not a map: order is
           part of a document, keys are nodes rather than strings, and a file can
-          legitimately have a sequence as a key. An alias stays an alias, so
-          <code>emit</code> writes <code>*shared</code> rather than the several
-          lines it stands for. <code>to_json</code> is there for the caller who
-          wants the value: it folds <code>&lt;&lt;</code> in and resolves the
-          aliases.
+          legitimately have a sequence as a key or the same key written twice. An
+          alias stays an alias, so <code>emit</code> writes <code>*shared</code>
+          rather than the several lines it stands for. <code>to_json</code> is
+          there for the caller who wants the value: it resolves the aliases and
+          folds <code>&lt;&lt;</code> in.
         </p>
         <p>Build one by hand, or from a value:</p>
         <pre><code><span class="k">let</span> doc = @moonyaml.Node::map([
@@ -223,9 +285,80 @@ println(doc.to_json().stringify())  <span class="c">// what it means</span></cod
 
 <span class="k">let</span> built = @moonyaml.Node::of_json(@moonyaml.loads(src))</code></pre>
         <p>
-          <code>emit</code> takes <code>indent</code> (default 2) and
-          <code>from</code> (default 0), the column it starts at when the text is
-          going inside something else.
+          Walking a tree is a match on <code>kind</code>. An edit is the tree you
+          put back — the same node with another value, the same pair with another
+          key — and nothing else in the document moves:
+        </p>
+        <pre><code><span class="k">let</span> renamed = <span class="k">match</span> doc.kind {
+  Mapping(pairs) =&gt;
+    @moonyaml.Node::map(
+      pairs.map(<span class="k">fn</span>(pair) {
+        <span class="k">if</span> pair.0.text == <span class="s">"name"</span> {
+          (pair.0, @moonyaml.Node::scalar(<span class="s">"api"</span>))
+        } <span class="k">else</span> {
+          pair
+        }
+      }),
+    )
+  _ =&gt; doc
+}</code></pre>
+
+        <h2 id="writing">Writing a document back</h2>
+        <p>
+          <code>emit</code> writes the tree it is given: the style each scalar had,
+          the flow flag of each collection, the chomping indicator of each block
+          scalar, the comments, the anchors, the tags, and the markers the
+          document carried.
+        </p>
+        <pre><code>@moonyaml.emit(doc)               <span class="c">// indent 2, from column 0</span>
+@moonyaml.emit(doc, indent=<span class="n">4</span>)     <span class="c">// four spaces per level</span>
+@moonyaml.emit(doc, from=<span class="n">2</span>)       <span class="c">// embedded, starting at column 2</span></code></pre>
+        <p>
+          Two things it settles rather than keeps. A scalar whose text holds a
+          break is written over several lines, with each break spelled as the
+          blank line that folds back into it — there is no other way to spell a
+          break in a plain or single-quoted scalar. And a block scalar whose first
+          line begins with a space gets an explicit indentation indicator, because
+          without one the reader would take that space for the indentation and the
+          value would come back missing a character.
+        </p>
+        <div class="quiet">
+          <p>
+            The claim worth checking is not that the text is byte-identical —
+            <code>emit</code> decides its own line breaks — but that reading it
+            back gives the same document. That is what
+            <code>Node::same</code> and the events below are for.
+          </p>
+        </div>
+
+        <h2 id="events">Comparing documents</h2>
+        <p>
+          <code>Node::events</code> writes the parse instead of the value: one
+          line per event, in the notation the YAML Test Suite records a parse tree
+          in. Two documents are the same document when their events are the same
+          lines.
+        </p>
+        <pre><code><span class="k">let</span> doc = @moonyaml.parse(<span class="s">"name: web\nports: [80, 443]\n"</span>)
+print(doc.events())</code></pre>
+        <pre class="wraps"><code>+DOC
+ +MAP
+  =VAL :name
+  =VAL :web
+  =VAL :ports
+  +SEQ []
+   =VAL :80
+   =VAL :443
+  -SEQ
+ -MAP
+-DOC</code></pre>
+        <p>
+          A scalar's line starts with the style it was written in —
+          <code>:</code> plain, <code>'</code> single, <code>"</code> double,
+          <code>|</code> literal, <code>&gt;</code> folded — and a flow collection
+          carries <code>[]</code> or <code>{}</code>. An anchor is
+          <code>&amp;name</code> and a tag <code>&lt;tag&gt;</code>, before the
+          value. <code>events_all(docs)</code> wraps a whole stream in
+          <code>+STR</code> and <code>-STR</code>.
         </p>
 
         <h2 id="typed">Typed values</h2>
@@ -237,8 +370,8 @@ println(doc.to_json().stringify())  <span class="c">// what it means</span></cod
         </p>
         <pre><code><span class="k">let</span> server : Server = @moonyaml.loads_as(src)
 <span class="k">let</span> yaml = @moonyaml.dumps_of(server)
-<span class="k">let</span> again = @moonyaml.round_trip[Server](src, adjust=fn(s) {
-  s.port = 8081
+<span class="k">let</span> again = @moonyaml.round_trip[Server](src, adjust=<span class="k">fn</span>(s) {
+  s.port = <span class="n">8081</span>
 })</code></pre>
         <p>
           <code>loads_as</code> and <code>load_as</code> raise
@@ -251,14 +384,15 @@ println(doc.to_json().stringify())  <span class="c">// what it means</span></cod
         </p>
         <div class="quiet">
           <p>
-            <code>round_trip</code> is a test helper, not a converter: it decodes,
-            lets <code>adjust</code> change the value in place, writes it back and
-            returns the text — so a decode that loses a field shows up as a
-            missing line in the output rather than as a surprise in production.
+            <code>round_trip</code> is for checking a decode, not for converting:
+            it decodes, lets <code>adjust</code> change the value in place, writes
+            it back and returns the text — so a decode that loses a field shows up
+            as a missing line in the output rather than as a surprise in
+            production.
           </p>
         </div>
 
-        <h2 id="writing">Writing</h2>
+        <h2 id="dumping">Writing a value</h2>
         <p>
           <code>dumps</code> writes block style at indent 2, quoting only what has
           to be quoted. Every choice it makes is a field of <code>Style</code>.
@@ -270,24 +404,23 @@ println(doc.to_json().stringify())  <span class="c">// what it means</span></cod
         <div class="table-wrap">
           <table>
           <thead>
-            <tr><th><code>Style</code></th><th>Default</th><th>Where the default comes from</th></tr>
+            <tr><th><code>Style</code></th><th>Default</th><th>Why</th></tr>
           </thead>
           <tbody>
-            <tr><td><code>indent</code></td><td>2</td><td>What Kubernetes manifests and Compose files use; the value <code>kubectl</code> writes</td></tr>
-            <tr><td><code>width</code></td><td>80</td><td>Where a flow collection stops fitting on a line</td></tr>
+            <tr><td><code>indent</code></td><td>2</td><td>Two columns per level: what almost every configuration file in the wild uses, and what fits a diff</td></tr>
+            <tr><td><code>width</code></td><td>80</td><td>Where a collection stops fitting on one line and <code>Auto</code> breaks it</td></tr>
             <tr><td><code>layout</code></td><td><code>Block</code></td><td>Block reads better in a diff. <code>Flow</code> is JSON's shape, <code>Auto</code> decides per collection by width</td></tr>
             <tr><td><code>quotes</code></td><td><code>Minimal</code></td><td>Quote only what has to be quoted, which is what a person writing YAML does</td></tr>
-            <tr><td><code>anchors</code></td><td><code>true</code></td><td>A collection that appears twice is written once and referenced — what PyYAML and ruamel.yaml do with a shared object</td></tr>
+            <tr><td><code>anchors</code></td><td><code>true</code></td><td>A collection that appears twice is written once and referenced</td></tr>
             <tr><td><code>sort</code></td><td><code>false</code></td><td>A document keeps the order it was written in. Turn it on for a stable file</td></tr>
           </tbody>
         </table>
         </div>
         <p>
-          A value that has an alphabetically reasonable shape is still written in
-          the order it has, unless <code>sort</code> says otherwise. A string that
-          could be read as a number, a boolean, a null or a tag is quoted; a
-          string with a newline in it becomes a literal block with the chomping
-          indicator that reproduces it exactly.
+          A value keeps the order it has unless <code>sort</code> says otherwise.
+          A string that could be read as a number, a boolean, a null or a tag is
+          quoted; a string with a newline in it becomes a literal block with the
+          chomping indicator that reproduces it exactly.
         </p>
         <p>
           <code>dumps</code> also takes <code>rules</code>, so a 1.1 <code>Json</code>
@@ -313,21 +446,29 @@ println(doc.to_json().stringify())  <span class="c">// what it means</span></cod
             <tr><th><code>Flavor</code></th><th>Default</th><th>Why</th></tr>
           </thead>
           <tbody>
-            <tr><td><code>depth</code></td><td>500</td><td>Between Jackson's 1000 and serde_json's 128, and the same as this family's JSON reader</td></tr>
-            <tr><td><code>duplicates</code></td><td><code>Last</code></td><td>What every loader in reach does. <code>First</code> and <code>Reject</code> exist because a key written twice is usually a mistake</td></tr>
-            <tr><td><code>aliases</code></td><td><code>true</code></td><td>An alias is part of the language; <code>false</code> refuses one outright</td></tr>
-            <tr><td><code>budget</code></td><td>10 000 000</td><td>Nodes one document's aliases may expand to. There is no common value to follow, because libyaml and PyYAML have none, so this takes the safe side</td></tr>
+            <tr><td><code>depth</code></td><td>500</td><td>Deeper than any configuration file nests, shallow enough that the reader's own recursion cannot be driven off the stack</td></tr>
+            <tr><td><code>duplicates</code></td><td><code>Last</code></td><td>A mapping names each key once (§3.2.1.1); where one is written twice, the last is what the document ends with. <code>First</code> and <code>Reject</code> exist because a repeated key is usually a mistake</td></tr>
+            <tr><td><code>aliases</code></td><td><code>true</code></td><td>An alias is part of the language; <code>false</code> refuses one outright, which is what reading untrusted input may want</td></tr>
+            <tr><td><code>budget</code></td><td>10 000 000</td><td>Nodes one document's aliases may expand to. A dozen lines of aliases can name billions of nodes, so the expansion is counted and capped</td></tr>
           </tbody>
         </table>
         </div>
         <p>
-          The budget is the "billion laughs": an alias may name a node that
-          contains aliases, so a dozen lines can expand to billions of nodes.
-          PyYAML's <code>safe_load</code> and libyaml both perform the expansion
-          faithfully. Here it is counted and capped, and going over is
-          <code>Exceeded</code> with the node count and the limit, not an
+          The budget is what an alias costs a reader that does not count: an alias
+          may name a node that itself holds aliases, so ten lines can expand to
+          millions of nodes. Here the expansion is counted, and going over it is
+          <code>Exceeded</code> with the count and the limit in it, not an
           out-of-memory.
         </p>
+        <pre><code>@moonyaml.loads(
+  #|<span class="k">a:</span> <span class="a">&amp;a</span> [x, x]
+  #|<span class="k">b:</span> <span class="a">&amp;b</span> [*a, *a]
+  #|<span class="k">c:</span> <span class="a">&amp;c</span> [*b, *b]
+  #|<span class="k">d:</span> [*c, *c]
+  ,
+  flavor=@moonyaml.Flavor::new(budget=<span class="n">8</span>),
+)
+<span class="c">// refused — 2:8: expands to 9 nodes, over 8</span></code></pre>
 
         <h2 id="refusals">Refusals</h2>
         <p>
@@ -341,7 +482,7 @@ println(doc.to_json().stringify())  <span class="c">// what it means</span></cod
             <tr><th>Arm</th><th>When</th></tr>
           </thead>
           <tbody>
-            <tr><td><code>Unexpected(at, c)</code></td><td>A character that cannot appear here</td></tr>
+            <tr><td><code>Unexpected(at, c)</code></td><td>A character that cannot stand where it was written</td></tr>
             <tr><td><code>Truncated(at)</code></td><td>The text ends inside a document</td></tr>
             <tr><td><code>BadEscape(at)</code></td><td>A double-quoted escape that is not one of §5.7's</td></tr>
             <tr><td><code>BadIndent(at)</code></td><td>A line indented to a column that lines up with nothing</td></tr>
@@ -352,7 +493,7 @@ println(doc.to_json().stringify())  <span class="c">// what it means</span></cod
             <tr><td><code>TooDeep(at)</code></td><td>Past <code>depth</code></td></tr>
             <tr><td><code>Exceeded(at, limit, got)</code></td><td>Aliases expanding past <code>budget</code></td></tr>
             <tr><td><code>BadUtf8(at)</code></td><td>Not UTF-8, from the byte entry points</td></tr>
-            <tr><td><code>Disallowed(at, what)</code></td><td>A construct the version does not have — a flow collection in StrictYAML, an anchor, a tag</td></tr>
+            <tr><td><code>Disallowed(at, what)</code></td><td>A construct the version does not have — a flow collection under the strict dialect, a tag, a key that is a collection</td></tr>
           </tbody>
         </table>
         </div>
@@ -369,53 +510,13 @@ a: 2          <span class="c">2:1: the key `a` is written twice</span></code></p
           the tag on the node, so it survives a write.
         </p>
 
-        <h2 id="suite">The test suite</h2>
+        <h2 id="next">Where to go next</h2>
         <p>
-          The <a href="https://github.com/yaml/yaml-test-suite">YAML Test Suite</a>
-          is 402 cases: a document, the JSON it should read as, and sometimes the
-          marker that it must be refused. This reader answers 363 of them as the
-          suite says — 271 against the JSON, 92 by refusing — and reads two that
-          the suite refuses, both tab faults that PyYAML, libyaml and ruamel.yaml
-          read too.
-        </p>
-        <p>
-          The comparison is a test rather than a script, in four parts:
-        </p>
-        <ul>
-          <li><strong>the suite as 1.2.2</strong>, case by case, in <code>src/tests/core</code></li>
-          <li><strong>the suite beside 1.2.2</strong>, for every version, in <code>src/tests/versions</code> — the table above is its output, asserted, so a number that moves fails the build</li>
-          <li><strong>the document model beside the value model</strong> over the same suite: 278 of 292 documents agree, and the 14 that do not are listed by id with a reason</li>
-          <li><strong>the divergence lists</strong>, which fail in either direction: a new difference is a decision, and a listed difference that starts passing is a stale claim</li>
-        </ul>
-        <pre><code>moon test --target all                  <span class="c"># everything, four backends</span>
-python3 scripts/gen_suite.py              <span class="c"># regenerate the suite data</span>
-python3 scripts/sync_diverged.py          <span class="c"># rewrite a divergence list from a run</span></code></pre>
-
-        <h2 id="api">API at a glance</h2>
-        <div class="table-wrap">
-          <table>
-          <thead>
-            <tr><th>Function</th><th>Gives back</th></tr>
-          </thead>
-          <tbody>
-            <tr><td><code>loads(src)</code> / <code>loads_all(src)</code></td><td><code>Json</code> — the one document, or every document in the stream</td></tr>
-            <tr><td><code>load(bytes)</code> / <code>load_all(bytes)</code></td><td>The same, over UTF-8, skipping a leading BOM</td></tr>
-            <tr><td><code>loads_as[T](src)</code> / <code>load_as[T](bytes)</code></td><td>A typed value, through <code>@json.FromJson</code></td></tr>
-            <tr><td><code>dumps(value)</code> / <code>dumps_all(values)</code></td><td>YAML text</td></tr>
-            <tr><td><code>dump(value)</code> / <code>dump_all(values)</code></td><td>The same, as <code>Bytes</code></td></tr>
-            <tr><td><code>dumps_of[T](value)</code> / <code>dumps_of_all[T](values)</code></td><td>The same, through <code>@json.ToJson</code></td></tr>
-            <tr><td><code>round_trip[T](src, adjust~)</code></td><td>A typed value written back, for checking that a decode is a decode</td></tr>
-            <tr><td><code>parse(src)</code> / <code>parse_all(src)</code></td><td><code>Node</code> — the document, comments and all</td></tr>
-            <tr><td><code>emit(node)</code></td><td>YAML text that reads back as the same document</td></tr>
-            <tr><td><code>declared_version(src)</code></td><td>The <code>%YAML</code> a document asks for, or <code>None</code></td></tr>
-          </tbody>
-        </table>
-        </div>
-        <p>
-          The generated interface of every package is on
-          <a href="https://mooncakes.io/docs/#/moonbitstack/moonyaml/">mooncakes.io</a>,
-          and the source is at
-          <a href="https://github.com/moonbitstack/moonyaml">moonbitstack/moonyaml</a>.
+          Every public type, value and function is on
+          <a href="api.html">the API page</a>, generated from the packages'
+          interfaces and their comments. The three programs on
+          <a href="examples.html">the examples page</a> cover the same ground with
+          their real output.
         </p>
       </article>
     </div>
@@ -424,9 +525,9 @@ python3 scripts/sync_diverged.py          <span class="c"># rewrite a divergence
       <div class="shell">
         <span>moonyaml — Apache-2.0</span>
         <a href="index.html">Overview</a>
+        <a href="api.html">API</a>
         <a href="examples.html">Examples</a>
         <a href="https://github.com/moonbitstack/moonyaml">Source</a>
-        <a href="https://mooncakes.io/docs/#/moonbitstack/moonyaml/">API</a>
         <span class="spacer">built with MoonBit</span>
       </div>
     </footer>
