@@ -15,22 +15,28 @@ tags and the style it was written with, so it can be written back. Both come fro
 one scanner: a version is a resolver, not a fork.
 
 ```moonbit
-let config = @moonyaml.loads(
-  #|server:
-  #|  host: 0.0.0.0
-  #|  port: 12000
-  #|limits: &shared { files: 1000, bytes: 1048576 }
-  #|upload: *shared
-)
-
-@moonyaml.dumps(config)      // back to YAML, block style
-@moonyaml.loads_all(stream)  // every document in a `---` stream
+test {
+  let config = @moonyaml.loads(
+    #|server:
+    #|  host: 0.0.0.0
+    #|  port: 12000
+    #|limits: &shared { files: 1000, bytes: 1048576 }
+    #|upload: *shared
+  )
+  println(@moonyaml.dumps(config))   // back to YAML, block style
+}
 ```
 
 ```moonbit
-let doc = @moonyaml.parse(src)   // keeps the comments too
-@moonyaml.emit(doc)              // and writes them back
-doc.to_json()                    // what it means, for a caller who wants a value
+test {
+  let doc = @moonyaml.parse(
+    #|# the deployment
+    #|name: web
+    #|ports: [80, 443]
+  )
+  println(@moonyaml.emit(doc))       // the same document, comment and all
+  println(doc.to_json().stringify()) // what it means
+}
 ```
 
 ## Install
@@ -98,20 +104,21 @@ the comments `before` it and the one `after` it, and whether the document it hea
 was opened by an explicit `---` or closed by a `...`.
 
 ```moonbit
-let doc = @moonyaml.parse(
-  #|# the deployment
-  #|name: web
-  #|ports: [80, 443]
-  #|motd: |
-  #|  one
-  #|  two
-)
-
-match doc.kind {
-  Mapping(pairs) => println(pairs[2].0.text)   // ports
-  _ => ()
+test {
+  let doc = @moonyaml.parse(
+    #|# the deployment
+    #|name: web
+    #|ports: [80, 443]
+    #|motd: |
+    #|  one
+    #|  two
+  )
+  match doc.kind {
+    Mapping(pairs) => println(pairs[2].0.text)   // ports
+    _ => ()
+  }
+  println(@moonyaml.emit(doc))   // the same file, comment and all
 }
-println(@moonyaml.emit(doc))   // the same file, comment and all
 ```
 
 A mapping is an `Array[(Node, Node)]` rather than a map: order is part of a
@@ -142,6 +149,7 @@ after an edit that was supposed to touch nothing, say.
 Two records, each with presets, each field overridable, and every knob reachable
 as a named argument on the call:
 
+<!-- nocheck: the shape of the call, not a program -->
 ```moonbit
 @moonyaml.loads(src, flavor=@moonyaml.Flavor::new(duplicates=Reject))
 @moonyaml.loads(src, flavor={ ..@moonyaml.strict, budget: 1000 })
