@@ -5,8 +5,10 @@
 _build/
 target/
 
-# The site and the suite generators are for the repository, not for a caller who
-# has just added the module: `moon add` should bring the library and its docs.
+# The site and the two scripts that feed it are for the repository, not for a
+# caller who has just added the module: `moon add` should bring the library, the
+# examples and the interface, and nothing else.
 .ref/
-site/
+docs/
+scripts/
 tools/
