@@ -1,4 +1,4 @@
-name: Site
+name: Docs
 
 # The homepage, the guide, the examples and the API reference are files in
 # `docs/`: what is in the repository is what is served, and there is no build
@@ -16,7 +16,7 @@ on:
       - "docs/**"
       - "src/**"
       - "scripts/gen_api.py"
-      - ".github/workflows/site.yml"
+      - ".github/workflows/docs.yml"
   workflow_dispatch:
 
 permissions:
