@@ -73,7 +73,7 @@
 <pre class="sig"><code>pub(all) suberror Malformed {
   Read(Refused)
   Shape(@json.JsonDecodeError)
-} derive(@debug.Debug)</code></pre>
+}</code></pre>
 <div class="prose"><p>Why a document did not become the value the caller asked for.</p>
 <p>Two things can go wrong, and they are different things: the YAML may not have been read at all, or it may have been read and not be the shape a type needs. Both carry where — the reader's position, or the path into the document — so a caller can say which line to look at.</p></div>
 <div class="field">
@@ -115,7 +115,7 @@
   Exceeded(at~ : At, limit~ : Int32, got~ : Int32)
   BadUtf8(At)
   Disallowed(At, String)
-} derive(Eq, @debug.Debug)</code></pre>
+}</code></pre>
 <div class="prose"><p>Why a document was refused.</p>
 <p>YAML's own answer to ambiguity is to be permissive, which is how a configuration file comes to mean something other than what it looks like. This reader refuses instead: anything it cannot resolve to one reading is an error with a position, never a guess.</p></div>
 <div class="field">
@@ -201,7 +201,7 @@
   at : Int32
   line : Int32
   column : Int32
-} derive(Eq, @debug.Debug)</code></pre>
+}</code></pre>
 <div class="prose"><p>Where in the source something is: the offset in code units, and the line and column a person counts from one.</p>
 <p>Every refusal carries one, because a configuration file that will not load is read by a person who needs to know which line to look at.</p></div>
 <div class="field">
@@ -246,7 +246,7 @@
   Last
   First
   Reject
-} derive(Eq, @debug.Debug)</code></pre>
+}</code></pre>
 <div class="prose"><p>What to do when a mapping names the same key twice.</p>
 <p>YAML 1.2.2 §3.2.1.1 says the keys of a mapping are unique and leaves the handling of a duplicate to the processor. Every loader in reach takes the last one, which is what <code>Last</code> does; <code>First</code> and <code>Reject</code> are here because a configuration file with a key written twice is usually a mistake someone would rather be told about.</p></div>
 <div class="field">
@@ -280,7 +280,7 @@
   duplicates : Duplicates
   aliases : Bool
   budget : Int32
-} derive(Eq, @debug.Debug)</code></pre>
+}</code></pre>
 <div class="prose"><p>How a document is read: the limits, and what to do with a duplicate key.</p>
 <p>The preset is <a href="#strict"><code>strict</code></a>. Build another with <a href="#flavor-new"><code>Flavor::new</code></a>, or update one in place with <code>{ ..strict, depth: 64 }</code>.</p></div>
 <div class="field">
@@ -362,7 +362,7 @@
   Block
   Flow
   Auto
-} derive(Eq, @debug.Debug)</code></pre>
+}</code></pre>
 <div class="prose"><p>How a collection is laid out.</p>
 <p><code>Block</code> is the style a configuration file is written in: one entry per line, a person can read it and a diff shows one change per line. <code>Flow</code> is the brace and bracket form, which JSON shares and which a machine-generated file often wants. <code>Auto</code> picks per collection: flow when it holds nothing but scalars and the whole of it fits in <code>Style::width</code>, block otherwise. A collection of collections stays block, because that is the shape of a configuration file.</p></div>
 <div class="field">
@@ -470,7 +470,7 @@
 <div class="prose"><p>A block mapping.</p></div>
 </div>
 <div class="item" id="node-of_json">
-<pre class="sig"><code>pub fn Node::of_json(Json) -&gt; Self</code></pre>
+<pre class="sig"><code>pub fn Node::of_json(@json.Json) -&gt; Self</code></pre>
 <div class="prose"><p>A tree for a <code>Json</code> value: the document a program would write for it.</p></div>
 </div>
 <div class="item" id="node-of_kind">
@@ -499,7 +499,7 @@
 <div class="prose"><p>This node, tagged.</p></div>
 </div>
 <div class="item" id="node-to_json">
-<pre class="sig"><code>pub fn Node::to_json(Self) -&gt; Json</code></pre>
+<pre class="sig"><code>pub fn Node::to_json(Self) -&gt; @json.Json</code></pre>
 <div class="prose"><p>The <code>Json</code> this document denotes, with its aliases expanded.</p></div>
 </div>
 <div class="item" id="quotes">
@@ -507,7 +507,7 @@
   Minimal
   Single
   Double
-} derive(Eq, @debug.Debug)</code></pre>
+}</code></pre>
 <div class="prose"><p>Which quote a string gets when it needs one.</p>
 <p><code>Minimal</code> quotes only what would otherwise read as something else, which is what makes the output look written rather than generated. <code>Single</code> and <code>Double</code> are for a caller whose output feeds a second reader that is happier with one form.</p></div>
 <div class="field">
@@ -544,7 +544,7 @@
   underscores : Bool
   sexagesimal : Bool
   strings : Bool
-} derive(Eq, @debug.Debug)</code></pre>
+}</code></pre>
 <div class="prose"><p>What a YAML version resolves an unquoted scalar to.</p>
 <p>The three released versions disagree with each other, and the disagreements are all here rather than in the scanner: 1.1 reads <code>yes</code> as a boolean, <code>014</code> as twelve and <code>1:30</code> as ninety, 1.2 reads all three as strings, and StrictYAML reads every scalar as a string whatever it looks like. A version is a set of rules over one reader, which is why this library has one parser and not four.</p>
 <p>A dialect nobody has published yet — a configuration language of your own, a pre-1.0 variant — is a <code>Rules</code> of your own, passed through <a href="#schema"><code>Schema</code></a>. Nothing here is closed.</p></div>
@@ -596,7 +596,7 @@
   Double
   Literal(Int32)
   Folded(Int32)
-} derive(Eq)</code></pre>
+}</code></pre>
 <div class="prose"><p>How a scalar was written.</p>
 <p>A block scalar carries the chomping indicator that was written with it, because <code>|</code> and <code>|-</code> are different strings at the end of a line.</p></div>
 <div class="field">
@@ -630,7 +630,7 @@
 </div>
 <div class="item" id="schema">
 <pre class="sig"><code>pub(all) struct Schema {
-  resolve : (String, Bool, String?, At, Rules) -&gt; Json raise Refused
+  resolve : (String, Bool, String?, At, Rules) -&gt; @json.Json raise Refused
   rules : Rules
   merge : Bool
   tags : Bool
@@ -643,7 +643,7 @@
 <p>The scanner in this package is shared; what a version resolves a scalar to, and what it allows besides, is a <code>Schema</code>.</p>
 <p>The one in this package is <a href="#core"><code>core</code></a>, the core schema of §10.2. The <code>v11</code>, <code>v10</code>, <code>strict</code> and <code>any</code> packages beside it are each a schema over the same scanner, which is why a version is a resolver rather than a fork of the reader.</p></div>
 <div class="field">
-<code class="name">resolve : (String, Bool, String?, At, Rules) -&gt; Json raise Refused</code>
+<code class="name">resolve : (String, Bool, String?, At, Rules) -&gt; @json.Json raise Refused</code>
 <div class="prose"><p>A scalar as the value it denotes: its text, whether it was quoted, the tag it carried if any, where it was, and the rules that decide.</p></div>
 </div>
 <div class="field">
@@ -683,7 +683,7 @@
   quotes : Quotes
   anchors : Bool
   sort : Bool
-} derive(Eq, @debug.Debug)</code></pre>
+}</code></pre>
 <div class="prose"><p>How a document is written: the indentation, the line width, the layout, the quotes, and whether a repeated subtree is written once and referred to after.</p>
 <p>The preset is <a href="#style"><code>style</code></a>. Build another with <a href="#style-new"><code>Style::new</code></a>, or update one in place with <code>{ ..style, width: 120 }</code>.</p></div>
 <div class="field">
@@ -784,32 +784,32 @@
 <p>A reader may pick its rules from the document itself rather than from the caller, which is what <code>any</code> does. Only the first directive counts: §6.8.1 allows one per document, and the one that decides how the rest is read has to come before the rest.</p></div>
 </div>
 <div class="item" id="dump">
-<pre class="sig"><code>pub fn dump(Json, style? : Style, rules? : Rules, indent? : Int32, sort? : Bool) -&gt; Bytes</code></pre>
+<pre class="sig"><code>pub fn dump(@json.Json, style? : Style, rules? : Rules, indent? : Int32, sort? : Bool) -&gt; Bytes</code></pre>
 <div class="prose"><p>The same, as UTF-8 bytes — the <code>s</code> on <a href="#dumps"><code>dumps</code></a> is the one Python puts on the form that answers a string.</p></div>
 </div>
 <div class="item" id="dump_all">
-<pre class="sig"><code>pub fn dump_all(ArrayView[Json], style? : Style, rules? : Rules, indent? : Int32, sort? : Bool) -&gt; Bytes</code></pre>
+<pre class="sig"><code>pub fn dump_all(ArrayView[@json.Json], style? : Style, rules? : Rules, indent? : Int32, sort? : Bool) -&gt; Bytes</code></pre>
 <div class="prose"><p>The same, as UTF-8 bytes.</p></div>
 </div>
 <div class="item" id="dumps">
-<pre class="sig"><code>pub fn dumps(Json, style? : Style, rules? : Rules, indent? : Int32, sort? : Bool) -&gt; String</code></pre>
+<pre class="sig"><code>pub fn dumps(@json.Json, style? : Style, rules? : Rules, indent? : Int32, sort? : Bool) -&gt; String</code></pre>
 <div class="prose"><p>Write a <code>Json</code> tree as a YAML document.</p>
 <p>Block style by default, which is what a configuration file is written in and what a person reads. A string is quoted only when plain would read back as something else — a number, a boolean, a null, or not at all — so the output looks like a file someone wrote rather than one a program emitted.</p>
 <p>This is the reason to have a writer at all: a generator that builds YAML by joining strings gets the escaping wrong the first time a value contains a colon, and gets the indentation wrong the first time a value is a list.</p>
 <p><code>style</code> says how; <code>indent</code> and <code>sort</code> override the two knobs that change from call to call. A flat parameter wins over the record — see "Configuration" in the README.</p></div>
 </div>
 <div class="item" id="dumps_all">
-<pre class="sig"><code>pub fn dumps_all(ArrayView[Json], style? : Style, rules? : Rules, indent? : Int32, sort? : Bool) -&gt; String</code></pre>
+<pre class="sig"><code>pub fn dumps_all(ArrayView[@json.Json], style? : Style, rules? : Rules, indent? : Int32, sort? : Bool) -&gt; String</code></pre>
 <div class="prose"><p>A stream of documents, each opened by its own <code>---</code>.</p>
 <p>The separator goes before each document rather than between them, which is the one convention that stays correct under concatenation: two streams joined end to end still read as their documents, and appending one is appending lines. A reader of either convention reads this one — a marker before the first document is not an error anywhere — so nothing is given up by choosing it.</p></div>
 </div>
 <div class="item" id="dumps_of">
-<pre class="sig"><code>pub fn[T : ToJson] dumps_of(T, style? : Style, indent? : Int32, sort? : Bool) -&gt; String</code></pre>
+<pre class="sig"><code>pub fn[T : @json.ToJson] dumps_of(T, style? : Style, indent? : Int32, sort? : Bool) -&gt; String</code></pre>
 <div class="prose"><p>A value of type <code>T</code>, written as a YAML document.</p>
 <p>The other direction of <a href="#loads_as"><code>loads_as</code></a>, through the same <code>ToJson</code> trait, so a type that writes itself as JSON writes itself as YAML without knowing it.</p></div>
 </div>
 <div class="item" id="dumps_of_all">
-<pre class="sig"><code>pub fn[T : ToJson] dumps_of_all(ArrayView[T], style? : Style, indent? : Int32, sort? : Bool) -&gt; String</code></pre>
+<pre class="sig"><code>pub fn[T : @json.ToJson] dumps_of_all(ArrayView[T], style? : Style, indent? : Int32, sort? : Bool) -&gt; String</code></pre>
 <div class="prose"><p>A stream of values, each written as its own document.</p></div>
 </div>
 <div class="item" id="emit">
@@ -823,12 +823,12 @@
 <div class="prose"><p>Every document's events, between the <code>+STR</code> and <code>-STR</code> that open and close a stream — one line per event, which is what makes two streams comparable line by line.</p></div>
 </div>
 <div class="item" id="load">
-<pre class="sig"><code>pub fn load(BytesView, flavor? : Flavor, schema? : Schema, bom? : Bool) -&gt; Json raise Refused</code></pre>
+<pre class="sig"><code>pub fn load(BytesView, flavor? : Flavor, schema? : Schema, bom? : Bool) -&gt; @json.Json raise Refused</code></pre>
 <div class="prose"><p>The one document in <code>src</code>, decoded as UTF-8.</p>
 <p><code>bom</code> skips a leading byte-order mark, which YAML 1.2.2 §5.2 allows at the start of a stream and which an editor on Windows will happily write.</p></div>
 </div>
 <div class="item" id="load_all">
-<pre class="sig"><code>pub fn load_all(BytesView, flavor? : Flavor, schema? : Schema, bom? : Bool) -&gt; Array[Json] raise Refused</code></pre>
+<pre class="sig"><code>pub fn load_all(BytesView, flavor? : Flavor, schema? : Schema, bom? : Bool) -&gt; Array[@json.Json] raise Refused</code></pre>
 <div class="prose"><p>Every document in <code>src</code>, decoded as UTF-8.</p></div>
 </div>
 <div class="item" id="load_as">
@@ -836,13 +836,13 @@
 <div class="prose"><p>The one document in <code>src</code>, decoded as UTF-8, as a value of type <code>T</code>.</p></div>
 </div>
 <div class="item" id="loads">
-<pre class="sig"><code>pub fn loads(StringView, flavor? : Flavor, schema? : Schema) -&gt; Json raise Refused</code></pre>
+<pre class="sig"><code>pub fn loads(StringView, flavor? : Flavor, schema? : Schema) -&gt; @json.Json raise Refused</code></pre>
 <div class="prose"><p>The one document in <code>src</code>.</p>
 <p>Raises <code>Refused::Trailing</code> if a second document follows, which is what tells a caller expecting one file's worth of configuration that it got a stream.</p>
 <p><code>schema</code> says which YAML version reads it; the default is <a href="#core"><code>core</code></a>. A document that opens with <code>%YAML 1.1</code> is not read as 1.2 by default — pick the version, or let the <code>any</code> package pick it for you.</p></div>
 </div>
 <div class="item" id="loads_all">
-<pre class="sig"><code>pub fn loads_all(StringView, flavor? : Flavor, schema? : Schema) -&gt; Array[Json] raise Refused</code></pre>
+<pre class="sig"><code>pub fn loads_all(StringView, flavor? : Flavor, schema? : Schema) -&gt; Array[@json.Json] raise Refused</code></pre>
 <div class="prose"><p>Every document in <code>src</code>, in order.</p>
 <p>A stream with no documents at all is an empty array, not a null: nothing is not the same as one document containing nothing.</p></div>
 </div>
@@ -863,7 +863,7 @@
 <p>A stream with nothing in it holds no document, which is what <code>loads_all</code> says too; <code>parse</code> is where a single document is owed, and it gives the null one.</p></div>
 </div>
 <div class="item" id="round_trip">
-<pre class="sig"><code>pub fn[T : @json.FromJson + ToJson] round_trip(StringView, adjust? : (T) -&gt; Unit, flavor? : Flavor, schema? : Schema) -&gt; String raise Malformed</code></pre>
+<pre class="sig"><code>pub fn[T : @json.FromJson + @json.ToJson] round_trip(StringView, adjust? : (T) -&gt; Unit, flavor? : Flavor, schema? : Schema) -&gt; String raise Malformed</code></pre>
 <div class="prose"><p>Read a document as <code>T</code>, let <code>adjust</code> change it, and write it back.</p>
 <p>The three steps a configuration loader actually takes: read what the user wrote, fill in what they left out, write the whole of it back. <code>adjust</code> is where the defaults go, and it is also what says which type this is — a call with no <code>adjust</code> cannot tell.</p></div>
 </div>
@@ -881,27 +881,27 @@
 </div>
 <h3 id="yaml11-functions">Functions</h3>
 <div class="item" id="yaml11-dumps">
-<pre class="sig"><code>pub fn dumps(Json, style? : @moonyaml.Style, indent? : Int32, sort? : Bool) -&gt; String</code></pre>
+<pre class="sig"><code>pub fn dumps(@json.Json, style? : @moonyaml.Style, indent? : Int32, sort? : Bool) -&gt; String</code></pre>
 <div class="prose"><p>Write a value as YAML 1.1: a string that 1.1 would read back as a boolean or a number is quoted, so what is written is what is read.</p></div>
 </div>
 <div class="item" id="yaml11-dumps_all">
-<pre class="sig"><code>pub fn dumps_all(ArrayView[Json], style? : @moonyaml.Style, indent? : Int32, sort? : Bool) -&gt; String</code></pre>
+<pre class="sig"><code>pub fn dumps_all(ArrayView[@json.Json], style? : @moonyaml.Style, indent? : Int32, sort? : Bool) -&gt; String</code></pre>
 <div class="prose"><p>Every document, each opened by its own <code>---</code>.</p></div>
 </div>
 <div class="item" id="yaml11-load">
-<pre class="sig"><code>pub fn load(BytesView, flavor? : @moonyaml.Flavor, bom? : Bool) -&gt; Json raise @moonyaml.Refused</code></pre>
+<pre class="sig"><code>pub fn load(BytesView, flavor? : @moonyaml.Flavor, bom? : Bool) -&gt; @json.Json raise @moonyaml.Refused</code></pre>
 <div class="prose"><p>The one document in <code>src</code>, decoded as UTF-8 and read as YAML 1.1.</p></div>
 </div>
 <div class="item" id="yaml11-load_all">
-<pre class="sig"><code>pub fn load_all(BytesView, flavor? : @moonyaml.Flavor, bom? : Bool) -&gt; Array[Json] raise @moonyaml.Refused</code></pre>
+<pre class="sig"><code>pub fn load_all(BytesView, flavor? : @moonyaml.Flavor, bom? : Bool) -&gt; Array[@json.Json] raise @moonyaml.Refused</code></pre>
 <div class="prose"><p>Every document in <code>src</code>, decoded as UTF-8 and read as YAML 1.1.</p></div>
 </div>
 <div class="item" id="yaml11-loads">
-<pre class="sig"><code>pub fn loads(StringView, flavor? : @moonyaml.Flavor) -&gt; Json raise @moonyaml.Refused</code></pre>
+<pre class="sig"><code>pub fn loads(StringView, flavor? : @moonyaml.Flavor) -&gt; @json.Json raise @moonyaml.Refused</code></pre>
 <div class="prose"><p>The one document in <code>src</code>, read as YAML 1.1.</p></div>
 </div>
 <div class="item" id="yaml11-loads_all">
-<pre class="sig"><code>pub fn loads_all(StringView, flavor? : @moonyaml.Flavor) -&gt; Array[Json] raise @moonyaml.Refused</code></pre>
+<pre class="sig"><code>pub fn loads_all(StringView, flavor? : @moonyaml.Flavor) -&gt; Array[@json.Json] raise @moonyaml.Refused</code></pre>
 <div class="prose"><p>Every document in <code>src</code>, read as YAML 1.1.</p></div>
 </div>
 <h2 id="yaml10-yaml10">moonyaml/yaml10</h2>
@@ -918,27 +918,27 @@
 </div>
 <h3 id="yaml10-functions">Functions</h3>
 <div class="item" id="yaml10-dumps">
-<pre class="sig"><code>pub fn dumps(Json, style? : @moonyaml.Style, indent? : Int32, sort? : Bool) -&gt; String</code></pre>
+<pre class="sig"><code>pub fn dumps(@json.Json, style? : @moonyaml.Style, indent? : Int32, sort? : Bool) -&gt; String</code></pre>
 <div class="prose"><p>Write a value as YAML 1.0.</p></div>
 </div>
 <div class="item" id="yaml10-dumps_all">
-<pre class="sig"><code>pub fn dumps_all(ArrayView[Json], style? : @moonyaml.Style, indent? : Int32, sort? : Bool) -&gt; String</code></pre>
+<pre class="sig"><code>pub fn dumps_all(ArrayView[@json.Json], style? : @moonyaml.Style, indent? : Int32, sort? : Bool) -&gt; String</code></pre>
 <div class="prose"><p>Every document, each opened by its own <code>---</code>.</p></div>
 </div>
 <div class="item" id="yaml10-load">
-<pre class="sig"><code>pub fn load(BytesView, flavor? : @moonyaml.Flavor, bom? : Bool) -&gt; Json raise @moonyaml.Refused</code></pre>
+<pre class="sig"><code>pub fn load(BytesView, flavor? : @moonyaml.Flavor, bom? : Bool) -&gt; @json.Json raise @moonyaml.Refused</code></pre>
 <div class="prose"><p>The one document in <code>src</code>, decoded as UTF-8 and read as YAML 1.0.</p></div>
 </div>
 <div class="item" id="yaml10-load_all">
-<pre class="sig"><code>pub fn load_all(BytesView, flavor? : @moonyaml.Flavor, bom? : Bool) -&gt; Array[Json] raise @moonyaml.Refused</code></pre>
+<pre class="sig"><code>pub fn load_all(BytesView, flavor? : @moonyaml.Flavor, bom? : Bool) -&gt; Array[@json.Json] raise @moonyaml.Refused</code></pre>
 <div class="prose"><p>Every document in <code>src</code>, decoded as UTF-8 and read as YAML 1.0.</p></div>
 </div>
 <div class="item" id="yaml10-loads">
-<pre class="sig"><code>pub fn loads(StringView, flavor? : @moonyaml.Flavor) -&gt; Json raise @moonyaml.Refused</code></pre>
+<pre class="sig"><code>pub fn loads(StringView, flavor? : @moonyaml.Flavor) -&gt; @json.Json raise @moonyaml.Refused</code></pre>
 <div class="prose"><p>The one document in <code>src</code>, read as YAML 1.0.</p></div>
 </div>
 <div class="item" id="yaml10-loads_all">
-<pre class="sig"><code>pub fn loads_all(StringView, flavor? : @moonyaml.Flavor) -&gt; Array[Json] raise @moonyaml.Refused</code></pre>
+<pre class="sig"><code>pub fn loads_all(StringView, flavor? : @moonyaml.Flavor) -&gt; Array[@json.Json] raise @moonyaml.Refused</code></pre>
 <div class="prose"><p>Every document in <code>src</code>, read as YAML 1.0.</p></div>
 </div>
 <h2 id="strict-strict">moonyaml/strict</h2>
@@ -965,19 +965,19 @@
 </div>
 <h3 id="strict-functions">Functions</h3>
 <div class="item" id="strict-dumps">
-<pre class="sig"><code>pub fn dumps(Json, style? : @moonyaml.Style, indent? : Int32, sort? : Bool) -&gt; String</code></pre>
+<pre class="sig"><code>pub fn dumps(@json.Json, style? : @moonyaml.Style, indent? : Int32, sort? : Bool) -&gt; String</code></pre>
 <div class="prose"><p>Write a value as StrictYAML: every scalar is quoted unless it reads back as itself, because in StrictYAML there is nothing else it could be.</p></div>
 </div>
 <div class="item" id="strict-load">
-<pre class="sig"><code>pub fn load(BytesView, flavor? : @moonyaml.Flavor, bom? : Bool) -&gt; Json raise @moonyaml.Refused</code></pre>
+<pre class="sig"><code>pub fn load(BytesView, flavor? : @moonyaml.Flavor, bom? : Bool) -&gt; @json.Json raise @moonyaml.Refused</code></pre>
 <div class="prose"><p>The one document in <code>src</code>, decoded as UTF-8 and read as StrictYAML.</p></div>
 </div>
 <div class="item" id="strict-loads">
-<pre class="sig"><code>pub fn loads(StringView, flavor? : @moonyaml.Flavor) -&gt; Json raise @moonyaml.Refused</code></pre>
+<pre class="sig"><code>pub fn loads(StringView, flavor? : @moonyaml.Flavor) -&gt; @json.Json raise @moonyaml.Refused</code></pre>
 <div class="prose"><p>The one document in <code>src</code>, read as StrictYAML.</p></div>
 </div>
 <div class="item" id="strict-loads_all">
-<pre class="sig"><code>pub fn loads_all(StringView, flavor? : @moonyaml.Flavor) -&gt; Array[Json] raise @moonyaml.Refused</code></pre>
+<pre class="sig"><code>pub fn loads_all(StringView, flavor? : @moonyaml.Flavor) -&gt; Array[@json.Json] raise @moonyaml.Refused</code></pre>
 <div class="prose"><p>Every document in <code>src</code>, read as StrictYAML.</p>
 <p>StrictYAML has no multi-document streams — a file is a document — so this is the same as <a href="#loads"><code>loads</code></a> and exists to keep call sites that do not care about the difference working across versions.</p></div>
 </div>
@@ -985,15 +985,15 @@
 <p class="blurb">The version a document asks for with <code>%YAML</code>, and 1.2.2 when it asks for nothing.</p>
 <h3 id="any-functions">Functions</h3>
 <div class="item" id="any-load">
-<pre class="sig"><code>pub fn load(BytesView, flavor? : @moonyaml.Flavor, bom? : Bool) -&gt; Json raise @moonyaml.Refused</code></pre>
+<pre class="sig"><code>pub fn load(BytesView, flavor? : @moonyaml.Flavor, bom? : Bool) -&gt; @json.Json raise @moonyaml.Refused</code></pre>
 <div class="prose"><p>The one document in <code>src</code>, decoded as UTF-8 and read with the rules it asks for.</p></div>
 </div>
 <div class="item" id="any-loads">
-<pre class="sig"><code>pub fn loads(StringView, flavor? : @moonyaml.Flavor) -&gt; Json raise @moonyaml.Refused</code></pre>
+<pre class="sig"><code>pub fn loads(StringView, flavor? : @moonyaml.Flavor) -&gt; @json.Json raise @moonyaml.Refused</code></pre>
 <div class="prose"><p>The one document in <code>src</code>, read with the rules it asks for.</p></div>
 </div>
 <div class="item" id="any-loads_all">
-<pre class="sig"><code>pub fn loads_all(StringView, flavor? : @moonyaml.Flavor) -&gt; Array[Json] raise @moonyaml.Refused</code></pre>
+<pre class="sig"><code>pub fn loads_all(StringView, flavor? : @moonyaml.Flavor) -&gt; Array[@json.Json] raise @moonyaml.Refused</code></pre>
 <div class="prose"><p>Every document in <code>src</code>, read with the rules the first of them asks for.</p></div>
 </div>
 <div class="item" id="any-of">
