@@ -3,11 +3,12 @@
 
 ///|
 /// A configuration record of the kind a program reads out of a file.
+#derive(Eq, Debug)
 struct Server {
   mut host : String
   port : Double
   tags : Array[String]
-} derive(Eq, Debug)
+}
 
 ///|
 pub extend Server with Eq::{equal, not_equal}

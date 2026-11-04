@@ -2,6 +2,7 @@
 package "moonbitstack/moonyaml/tests/versions"
 
 import {
+  "moonbitlang/core/json",
   "moonbitstack/moonyaml",
 }
 
@@ -10,9 +11,9 @@ pub fn compare(Version) -> Report
 
 pub fn find(String) -> Version?
 
-pub fn probe((StringView) -> Array[Json] raise @moonyaml.Refused, String) -> Array[Json]?
+pub fn probe((StringView) -> Array[@json.Json] raise @moonyaml.Refused, String) -> Array[@json.Json]?
 
-pub fn readings(StringView) -> Array[(String, Json)]
+pub fn readings(StringView) -> Array[(String, @json.Json)]
 
 pub fn row(String, Report) -> String
 
@@ -39,9 +40,9 @@ pub(all) struct Score {
 pub struct Version {
   name : String
   spec : String
-  read : (StringView) -> Json raise @moonyaml.Refused
-  read_all : (StringView) -> Array[Json] raise @moonyaml.Refused
-  write : (Json) -> String
+  read : (StringView) -> @json.Json raise @moonyaml.Refused
+  read_all : (StringView) -> Array[@json.Json] raise @moonyaml.Refused
+  write : (@json.Json) -> String
 }
 
 // Type aliases

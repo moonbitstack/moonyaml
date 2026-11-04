@@ -1,16 +1,20 @@
 // Generated using `moon info`, DON'T EDIT IT
 package "moonbitstack/moonyaml/tests/data"
 
+import {
+  "moonbitlang/core/json",
+}
+
 // Values
 pub let cases : Array[Case]
 
-pub fn expected(String) -> Json?
+pub fn expected(String) -> @json.Json?
 
-pub fn same(Json, Json) -> Bool
+pub fn same(@json.Json, @json.Json) -> Bool
 
 pub fn same_events(String, String) -> String?
 
-pub fn shape(Json) -> Json
+pub fn shape(@json.Json) -> @json.Json
 
 // Errors
 

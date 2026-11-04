@@ -10,6 +10,7 @@
 /// `Auto` picks per collection: flow when it holds nothing but scalars and the
 /// whole of it fits in [`Style::width`], block otherwise. A collection of
 /// collections stays block, because that is the shape of a configuration file.
+#derive(Eq, Debug)
 pub(all) enum Layout {
   /// One entry per line, indented.
   Block
@@ -17,7 +18,7 @@ pub(all) enum Layout {
   Flow
   /// Flow for a collection of scalars that fits in one line, block otherwise.
   Auto
-} derive(Eq, Debug)
+}
 
 ///|
 pub extend Layout with Debug::{to_repr}
@@ -31,6 +32,7 @@ pub extend Layout with Eq::{not_equal, equal}
 /// `Minimal` quotes only what would otherwise read as something else, which is what
 /// makes the output look written rather than generated. `Single` and `Double` are
 /// for a caller whose output feeds a second reader that is happier with one form.
+#derive(Eq, Debug)
 pub(all) enum Quotes {
   /// Quote only a string that would otherwise read as something else.
   Minimal
@@ -38,7 +40,7 @@ pub(all) enum Quotes {
   Single
   /// Every string that has to be quoted gets `"`, escapes and all.
   Double
-} derive(Eq, Debug)
+}
 
 ///|
 pub extend Quotes with Debug::{to_repr}
@@ -52,6 +54,7 @@ pub extend Quotes with Eq::{not_equal, equal}
 ///
 /// The preset is [`style`]. Build another with [`Style::new`], or update one in
 /// place with `{ ..style, width: 120 }`.
+#derive(Eq, Debug)
 pub(all) struct Style {
   /// Spaces per level.
   indent : Int32
@@ -69,7 +72,7 @@ pub(all) struct Style {
   anchors : Bool
   /// Whether mapping keys are written in sorted order.
   sort : Bool
-} derive(Eq, Debug)
+}
 
 ///|
 pub extend Style with Debug::{to_repr}

@@ -2,21 +2,22 @@
 package "moonbitstack/moonyaml/yaml11"
 
 import {
+  "moonbitlang/core/json",
   "moonbitstack/moonyaml",
 }
 
 // Values
-pub fn dumps(Json, style? : @moonyaml.Style, indent? : Int32, sort? : Bool) -> String
+pub fn dumps(@json.Json, style? : @moonyaml.Style, indent? : Int32, sort? : Bool) -> String
 
-pub fn dumps_all(ArrayView[Json], style? : @moonyaml.Style, indent? : Int32, sort? : Bool) -> String
+pub fn dumps_all(ArrayView[@json.Json], style? : @moonyaml.Style, indent? : Int32, sort? : Bool) -> String
 
-pub fn load(BytesView, flavor? : @moonyaml.Flavor, bom? : Bool) -> Json raise @moonyaml.Refused
+pub fn load(BytesView, flavor? : @moonyaml.Flavor, bom? : Bool) -> @json.Json raise @moonyaml.Refused
 
-pub fn load_all(BytesView, flavor? : @moonyaml.Flavor, bom? : Bool) -> Array[Json] raise @moonyaml.Refused
+pub fn load_all(BytesView, flavor? : @moonyaml.Flavor, bom? : Bool) -> Array[@json.Json] raise @moonyaml.Refused
 
-pub fn loads(StringView, flavor? : @moonyaml.Flavor) -> Json raise @moonyaml.Refused
+pub fn loads(StringView, flavor? : @moonyaml.Flavor) -> @json.Json raise @moonyaml.Refused
 
-pub fn loads_all(StringView, flavor? : @moonyaml.Flavor) -> Array[Json] raise @moonyaml.Refused
+pub fn loads_all(StringView, flavor? : @moonyaml.Flavor) -> Array[@json.Json] raise @moonyaml.Refused
 
 pub let rules : @moonyaml.Rules
 

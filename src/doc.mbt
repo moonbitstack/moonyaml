@@ -16,6 +16,7 @@
 ///
 /// A block scalar carries the chomping indicator that was written with it, because
 /// `|` and `|-` are different strings at the end of a line.
+#derive(Eq)
 pub(all) enum ScalarStyle {
   /// Nothing around it: `one`.
   Plain
@@ -27,7 +28,7 @@ pub(all) enum ScalarStyle {
   Literal(Int32)
   /// `>` with its chomping indicator: the breaks fold, and a blank line spells one.
   Folded(Int32)
-} derive(Eq)
+}
 // `Eq` on a public enum is only useful when the methods are methods, and saying
 // so here is what the compiler now asks for instead of promoting them silently.
 

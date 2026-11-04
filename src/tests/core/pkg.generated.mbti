@@ -1,12 +1,16 @@
 // Generated using `moon info`, DON'T EDIT IT
 package "moonbitstack/moonyaml/tests/core"
 
+import {
+  "moonbitlang/core/json",
+}
+
 // Values
-pub fn attempt(String) -> Array[Json]?
+pub fn attempt(String) -> Array[@json.Json]?
 
 pub fn case_name(String) -> String
 
-pub fn check(Array[Json], Array[String]) -> String?
+pub fn check(Array[@json.Json], Array[String]) -> String?
 
 // Errors
 

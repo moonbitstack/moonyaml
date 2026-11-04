@@ -7,6 +7,7 @@
 ///
 /// Every refusal carries one, because a configuration file that will not load is
 /// read by a person who needs to know which line to look at.
+#derive(Eq, Debug)
 pub(all) struct At {
   /// The offset in code units from the start of the text.
   at : Int32
@@ -14,7 +15,7 @@ pub(all) struct At {
   line : Int32
   /// The column, counting from one.
   column : Int32
-} derive(Eq, Debug)
+}
 
 ///|
 pub impl Show for At with fn output(self, logger) {
@@ -37,6 +38,7 @@ pub extend At with Eq::{not_equal, equal}
 /// file comes to mean something other than what it looks like. This reader refuses
 /// instead: anything it cannot resolve to one reading is an error with a position,
 /// never a guess.
+#derive(Eq, Debug)
 pub(all) suberror Refused {
   /// A character that cannot stand where it was written.
   Unexpected(At, Char)
@@ -65,7 +67,7 @@ pub(all) suberror Refused {
   /// dialect, a tag or an anchor under a schema that has none, a key that is a
   /// collection where the value tree has only string keys.
   Disallowed(At, String)
-} derive(Eq, Debug)
+}
 
 ///|
 /// A refusal prints as the fault and the line it is on.
@@ -105,6 +107,7 @@ pub extend Refused with Eq::{not_equal, equal}
 /// of a duplicate to the processor. Every loader in reach takes the last one, which
 /// is what `Last` does; `First` and `Reject` are here because a configuration file
 /// with a key written twice is usually a mistake someone would rather be told about.
+#derive(Eq, Debug)
 pub(all) enum Duplicates {
   /// The last value written for a key is the one the mapping has.
   Last
@@ -112,7 +115,7 @@ pub(all) enum Duplicates {
   First
   /// A repeated key is refused, with the position of the second one.
   Reject
-} derive(Eq, Debug)
+}
 
 ///|
 pub extend Duplicates with Debug::{to_repr}
@@ -125,6 +128,7 @@ pub extend Duplicates with Eq::{not_equal, equal}
 ///
 /// The preset is [`strict`]. Build another with [`Flavor::new`], or update one in
 /// place with `{ ..strict, depth: 64 }`.
+#derive(Eq, Debug)
 pub(all) struct Flavor {
   /// How deep a document may nest. See [`depth`].
   depth : Int32
@@ -135,7 +139,7 @@ pub(all) struct Flavor {
   aliases : Bool
   /// How many nodes the aliases of one document may expand to. See [`budget`].
   budget : Int32
-} derive(Eq, Debug)
+}
 
 ///|
 pub extend Flavor with Debug::{to_repr}
@@ -191,6 +195,7 @@ pub fn Flavor::new(
 /// A dialect nobody has published yet — a configuration language of your own, a
 /// pre-1.0 variant — is a `Rules` of your own, passed through [`Schema`]. Nothing
 /// here is closed.
+#derive(Eq, Debug)
 pub(all) struct Rules {
   /// `yes`/`no`/`on`/`off` are booleans (YAML 1.1 §10.3).
   yes_no : Bool
@@ -207,7 +212,7 @@ pub(all) struct Rules {
   /// Every scalar is a string, whatever it looks like — StrictYAML's first rule,
   /// and the reason a StrictYAML document never surprises a reader.
   strings : Bool
-} derive(Eq, Debug)
+}
 
 ///|
 pub extend Rules with Debug::{to_repr}

@@ -8,13 +8,14 @@
 /// been read at all, or it may have been read and not be the shape a type needs.
 /// Both carry where — the reader's position, or the path into the document — so a
 /// caller can say which line to look at.
+#derive(Debug)
 pub(all) suberror Malformed {
   /// The text is not YAML at all: see [`Refused`] for the rule it broke.
   Read(Refused)
   /// The document read fine and is not the shape the type asked for. The path is
   /// a JSON Pointer into what was read, `/servers/2/port`.
   Shape(@json.JsonDecodeError)
-} derive(Debug)
+}
 
 ///|
 /// A refusal prints as itself; a shape error prints as the path and the reason.

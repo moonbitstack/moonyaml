@@ -19,17 +19,17 @@ pub fn declared_version(StringView) -> (Int32, Int32)?
 
 pub let depth : Int32
 
-pub fn dump(Json, style? : Style, rules? : Rules, indent? : Int32, sort? : Bool) -> Bytes
+pub fn dump(@json.Json, style? : Style, rules? : Rules, indent? : Int32, sort? : Bool) -> Bytes
 
-pub fn dump_all(ArrayView[Json], style? : Style, rules? : Rules, indent? : Int32, sort? : Bool) -> Bytes
+pub fn dump_all(ArrayView[@json.Json], style? : Style, rules? : Rules, indent? : Int32, sort? : Bool) -> Bytes
 
-pub fn dumps(Json, style? : Style, rules? : Rules, indent? : Int32, sort? : Bool) -> String
+pub fn dumps(@json.Json, style? : Style, rules? : Rules, indent? : Int32, sort? : Bool) -> String
 
-pub fn dumps_all(ArrayView[Json], style? : Style, rules? : Rules, indent? : Int32, sort? : Bool) -> String
+pub fn dumps_all(ArrayView[@json.Json], style? : Style, rules? : Rules, indent? : Int32, sort? : Bool) -> String
 
-pub fn[T : ToJson] dumps_of(T, style? : Style, indent? : Int32, sort? : Bool) -> String
+pub fn[T : @json.ToJson] dumps_of(T, style? : Style, indent? : Int32, sort? : Bool) -> String
 
-pub fn[T : ToJson] dumps_of_all(ArrayView[T], style? : Style, indent? : Int32, sort? : Bool) -> String
+pub fn[T : @json.ToJson] dumps_of_all(ArrayView[T], style? : Style, indent? : Int32, sort? : Bool) -> String
 
 pub fn emit(Node, indent? : Int32, from? : Int32) -> String
 
@@ -41,15 +41,15 @@ pub let indent : Int32
 
 pub let legacy_rules : Rules
 
-pub fn load(BytesView, flavor? : Flavor, schema? : Schema, bom? : Bool) -> Json raise Refused
+pub fn load(BytesView, flavor? : Flavor, schema? : Schema, bom? : Bool) -> @json.Json raise Refused
 
-pub fn load_all(BytesView, flavor? : Flavor, schema? : Schema, bom? : Bool) -> Array[Json] raise Refused
+pub fn load_all(BytesView, flavor? : Flavor, schema? : Schema, bom? : Bool) -> Array[@json.Json] raise Refused
 
 pub fn[T : @json.FromJson] load_as(BytesView, flavor? : Flavor, schema? : Schema, bom? : Bool) -> T raise Malformed
 
-pub fn loads(StringView, flavor? : Flavor, schema? : Schema) -> Json raise Refused
+pub fn loads(StringView, flavor? : Flavor, schema? : Schema) -> @json.Json raise Refused
 
-pub fn loads_all(StringView, flavor? : Flavor, schema? : Schema) -> Array[Json] raise Refused
+pub fn loads_all(StringView, flavor? : Flavor, schema? : Schema) -> Array[@json.Json] raise Refused
 
 pub fn[T : @json.FromJson] loads_as(StringView, flavor? : Flavor, schema? : Schema) -> T raise Malformed
 
@@ -57,7 +57,7 @@ pub fn parse(StringView, flavor? : Flavor, schema? : Schema) -> Node raise Refus
 
 pub fn parse_all(StringView, flavor? : Flavor, schema? : Schema) -> Array[Node] raise Refused
 
-pub fn[T : @json.FromJson + ToJson] round_trip(StringView, adjust? : (T) -> Unit, flavor? : Flavor, schema? : Schema) -> String raise Malformed
+pub fn[T : @json.FromJson + @json.ToJson] round_trip(StringView, adjust? : (T) -> Unit, flavor? : Flavor, schema? : Schema) -> String raise Malformed
 
 pub let strict : Flavor
 
@@ -66,15 +66,17 @@ pub let style : Style
 pub let width : Int32
 
 // Errors
+#derive(@debug.Debug)
 pub(all) suberror Malformed {
   Read(Refused)
   Shape(@json.JsonDecodeError)
-} derive(@debug.Debug)
+}
 pub fn Malformed::output(Self, &Logger) -> Unit
 pub fn Malformed::to_repr(Self) -> @debug.Repr
 pub fn Malformed::to_string(Self) -> String
 pub impl Show for Malformed
 
+#derive(Eq, @debug.Debug)
 pub(all) suberror Refused {
   Unexpected(At, Char)
   Truncated(At)
@@ -88,7 +90,7 @@ pub(all) suberror Refused {
   Exceeded(at~ : At, limit~ : Int32, got~ : Int32)
   BadUtf8(At)
   Disallowed(At, String)
-} derive(Eq, @debug.Debug)
+}
 pub fn Refused::at(Self) -> At
 pub fn Refused::equal(Self, Self) -> Bool
 pub fn Refused::not_equal(Self, Self) -> Bool
@@ -98,11 +100,12 @@ pub fn Refused::to_string(Self) -> String
 pub impl Show for Refused
 
 // Types and methods
+#derive(Eq, @debug.Debug)
 pub(all) struct At {
   at : Int32
   line : Int32
   column : Int32
-} derive(Eq, @debug.Debug)
+}
 pub fn At::equal(Self, Self) -> Bool
 pub fn At::not_equal(Self, Self) -> Bool
 pub fn At::output(Self, &Logger) -> Unit
@@ -110,21 +113,23 @@ pub fn At::to_repr(Self) -> @debug.Repr
 pub fn At::to_string(Self) -> String
 pub impl Show for At
 
+#derive(Eq, @debug.Debug)
 pub(all) enum Duplicates {
   Last
   First
   Reject
-} derive(Eq, @debug.Debug)
+}
 pub fn Duplicates::equal(Self, Self) -> Bool
 pub fn Duplicates::not_equal(Self, Self) -> Bool
 pub fn Duplicates::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub(all) struct Flavor {
   depth : Int32
   duplicates : Duplicates
   aliases : Bool
   budget : Int32
-} derive(Eq, @debug.Debug)
+}
 pub fn Flavor::equal(Self, Self) -> Bool
 pub fn Flavor::new(depth? : Int32, duplicates? : Duplicates, aliases? : Bool, budget? : Int32) -> Self
 pub fn Flavor::not_equal(Self, Self) -> Bool
@@ -140,11 +145,12 @@ pub(all) enum Kind {
   Alias(String)
 }
 
+#derive(Eq, @debug.Debug)
 pub(all) enum Layout {
   Block
   Flow
   Auto
-} derive(Eq, @debug.Debug)
+}
 pub fn Layout::equal(Self, Self) -> Bool
 pub fn Layout::not_equal(Self, Self) -> Bool
 pub fn Layout::to_repr(Self) -> @debug.Repr
@@ -166,24 +172,26 @@ pub fn Node::commented(Self, before~ : Array[String], after~ : String) -> Self
 pub fn Node::events(Self) -> String
 pub fn Node::in_flow(Self, Bool) -> Self
 pub fn Node::map(Array[(Self, Self)]) -> Self
-pub fn Node::of_json(Json) -> Self
+pub fn Node::of_json(@json.Json) -> Self
 pub fn Node::of_kind(Kind, String) -> Self
 pub fn Node::same(Self, Self) -> Bool
 pub fn Node::scalar(String) -> Self
 pub fn Node::seq(Array[Self]) -> Self
 pub fn Node::styled(Self, ScalarStyle) -> Self
 pub fn Node::tagged(Self, String) -> Self
-pub fn Node::to_json(Self) -> Json
+pub fn Node::to_json(Self) -> @json.Json
 
+#derive(Eq, @debug.Debug)
 pub(all) enum Quotes {
   Minimal
   Single
   Double
-} derive(Eq, @debug.Debug)
+}
 pub fn Quotes::equal(Self, Self) -> Bool
 pub fn Quotes::not_equal(Self, Self) -> Bool
 pub fn Quotes::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug)
 pub(all) struct Rules {
   yes_no : Bool
   letters : Bool
@@ -192,23 +200,24 @@ pub(all) struct Rules {
   underscores : Bool
   sexagesimal : Bool
   strings : Bool
-} derive(Eq, @debug.Debug)
+}
 pub fn Rules::equal(Self, Self) -> Bool
 pub fn Rules::not_equal(Self, Self) -> Bool
 pub fn Rules::to_repr(Self) -> @debug.Repr
 
+#derive(Eq)
 pub(all) enum ScalarStyle {
   Plain
   Single
   Double
   Literal(Int32)
   Folded(Int32)
-} derive(Eq)
+}
 pub fn ScalarStyle::equal(Self, Self) -> Bool
 pub fn ScalarStyle::not_equal(Self, Self) -> Bool
 
 pub(all) struct Schema {
-  resolve : (String, Bool, String?, At, Rules) -> Json raise Refused
+  resolve : (String, Bool, String?, At, Rules) -> @json.Json raise Refused
   rules : Rules
   merge : Bool
   tags : Bool
@@ -218,6 +227,7 @@ pub(all) struct Schema {
   primary : String
 }
 
+#derive(Eq, @debug.Debug)
 pub(all) struct Style {
   indent : Int32
   width : Int32
@@ -225,7 +235,7 @@ pub(all) struct Style {
   quotes : Quotes
   anchors : Bool
   sort : Bool
-} derive(Eq, @debug.Debug)
+}
 pub fn Style::equal(Self, Self) -> Bool
 pub fn Style::new(indent? : Int32, width? : Int32, layout? : Layout, quotes? : Quotes, anchors? : Bool, sort? : Bool) -> Self
 pub fn Style::not_equal(Self, Self) -> Bool
