@@ -16,26 +16,36 @@ one scanner: a version is a resolver, not a fork.
 
 ```moonbit
 test {
-  let config = @moonyaml.loads(
+  // A `#|` literal carries no last break, so the text it stands for ends in one.
+  let src =
     #|server:
     #|  host: 0.0.0.0
     #|  port: 12000
-    #|limits: &shared { files: 1000, bytes: 1048576 }
-    #|upload: *shared
+    #|limits:
+    #|  files: 1000
+    #|  bytes: 1048576
+  let text = src + "\n"
+  let config = @moonyaml.loads(text)
+  assert_eq(
+    config.stringify(),
+    "{\"server\":{\"host\":\"0.0.0.0\",\"port\":12000},\"limits\":{\"files\":1000,\"bytes\":1048576}}",
   )
-  println(@moonyaml.dumps(config))   // back to YAML, block style
+  assert_eq(@moonyaml.dumps(config), text)
 }
 ```
 
 ```moonbit
 test {
-  let doc = @moonyaml.parse(
+  let src =
     #|# the deployment
     #|name: web
     #|ports: [80, 443]
-  )
-  println(@moonyaml.emit(doc))       // the same document, comment and all
-  println(doc.to_json().stringify()) // what it means
+  let text = src + "\n"
+  let doc = @moonyaml.parse(text)
+  // The document, written back with the comment and the flow sequence it had.
+  assert_eq(@moonyaml.emit(doc), text)
+  // The value it means.
+  assert_eq(doc.to_json().stringify(), "{\"name\":\"web\",\"ports\":[80,443]}")
 }
 ```
 
@@ -96,6 +106,24 @@ hold a list of versions instead of a branch per version.
 flag: `014` is twelve there and fourteen here, and `1:30` is ninety there and a
 string here.
 
+```moonbit
+test {
+  let src = "enabled: yes\nmask: 014\nstarts: 12:30\n"
+  assert_eq(
+    @moonyaml.loads(src).stringify(),
+    "{\"enabled\":\"yes\",\"mask\":14,\"starts\":\"12:30\"}",
+  )
+  assert_eq(
+    @yaml11.loads(src).stringify(),
+    "{\"enabled\":true,\"mask\":12,\"starts\":750}",
+  )
+  assert_eq(
+    @strict.loads(src).stringify(),
+    "{\"enabled\":\"yes\",\"mask\":\"014\",\"starts\":\"12:30\"}",
+  )
+}
+```
+
 ## The document
 
 `parse` gives back a `Node`: a `kind`, the `text` a scalar was written as, the
@@ -105,19 +133,20 @@ was opened by an explicit `---` or closed by a `...`.
 
 ```moonbit
 test {
-  let doc = @moonyaml.parse(
+  let src =
     #|# the deployment
     #|name: web
     #|ports: [80, 443]
     #|motd: |
     #|  one
     #|  two
-  )
+  let text = src + "\n"
+  let doc = @moonyaml.parse(text)
   match doc.kind {
-    Mapping(pairs) => println(pairs[2].0.text)   // ports
-    _ => ()
+    Mapping(pairs) => assert_eq(pairs[2].0.text, "motd")
+    _ => fail("a mapping")
   }
-  println(@moonyaml.emit(doc))   // the same file, comment and all
+  assert_eq(@moonyaml.emit(doc), text)
 }
 ```
 
@@ -127,21 +156,50 @@ sequence as a key. An alias stays an alias, so `emit` writes `*shared` instead o
 the lines it stands for, and a scalar keeps the spelling it had — `014` is written
 back as `014`.
 
+```moonbit
+test {
+  let src = "limits: &shared {files: 1000}\nupload: *shared\n"
+  // A value has no anchors in it: the alias is expanded, and both sides are the
+  // same mapping.
+  assert_eq(
+    @moonyaml.loads(src).stringify(),
+    "{\"limits\":{\"files\":1000},\"upload\":{\"files\":1000}}",
+  )
+  // A document keeps them, and writes them back as they were written.
+  assert_eq(@moonyaml.emit(@moonyaml.parse(src)), src)
+  // Written from the value, the anchors a writer invents are its own.
+  assert_eq(
+    @moonyaml.dumps(@moonyaml.loads(src)),
+    "limits: &a0\n  files: 1000\nupload: *a0\n",
+  )
+}
+```
+
 `Node::events` reports the parse instead of the value: one line per event, the
 notation the YAML Test Suite uses for a parse tree. It is what a caller compares
 with when two documents should be the same *document* rather than the same value —
 after an edit that was supposed to touch nothing, say.
 
+```moonbit
+test {
+  let doc = @moonyaml.parse("name: web\n")
+  assert_eq(
+    doc.events(),
+    "+DOC\n +MAP\n  =VAL :name\n  =VAL :web\n -MAP\n-DOC\n",
+  )
+}
+```
+
+Which, printed, is the shape the suite writes:
+
 <!-- nocheck -->
 ```
-+STR
- +DOC
-  +MAP
-   =VAL :name
-   =VAL :web
-  -MAP
- -DOC
--STR
++DOC
+ +MAP
+  =VAL :name
+  =VAL :web
+ -MAP
+-DOC
 ```
 
 ## Configuration
@@ -149,16 +207,28 @@ after an edit that was supposed to touch nothing, say.
 Two records, each with presets, each field overridable, and every knob reachable
 as a named argument on the call:
 
-<!-- nocheck: the shape of the call, not a program -->
 ```moonbit
-@moonyaml.loads(src, flavor=@moonyaml.Flavor::new(duplicates=Reject))
-@moonyaml.loads(src, flavor={ ..@moonyaml.strict, budget: 1000 })
-@moonyaml.dumps(value, style=@moonyaml.flow)
-@moonyaml.dumps(value, indent=4, sort=true)
+test {
+  let nested = "a:\n  b:\n    c: 1\n"
+  assert_eq(@moonyaml.emit(@moonyaml.parse(nested)), nested)
+  assert_eq(
+    @moonyaml.emit(@moonyaml.parse(nested), indent=4),
+    "a:\n    b:\n        c: 1\n",
+  )
+  assert_eq(
+    @moonyaml.dumps(@moonyaml.loads("b: 1\na: 2\n"), sort=true),
+    "a: 2\nb: 1\n",
+  )
+  assert_eq(
+    @moonyaml.dumps(@moonyaml.loads("a: {b: [1, 2]}\n"), style=@moonyaml.flow),
+    "{a: {b: [1, 2]}}\n",
+  )
+}
 ```
 
 A flat argument wins over a field of the record, which wins over the preset's
-value. There is no other way to change a default, and no default is hidden.
+value — and `Style::new()` and `Flavor::new()` are the presets. There is no other
+way to change a default, and no default is hidden.
 
 | `Flavor` | Preset | Why that value |
 |:--|:--|:--|
@@ -170,7 +240,7 @@ value. There is no other way to change a default, and no default is hidden.
 | `Style` | Preset | Why that value |
 |:--|:--|:--|
 | `indent` | 2 | Two columns per level, which is what a hand-written configuration file uses and what fits a diff |
-| `width` | 80 | Where a collection stops fitting on a line and `Auto` breaks it |
+| `width` | 80 | Where a collection stops fitting on a line, and where a plain scalar that runs past it is folded at a space |
 | `layout` | `Block` | Block style reads better in a diff; `Flow` writes JSON's own shape, `Auto` decides per collection by width |
 | `quotes` | `Minimal` | Quote only what has to be quoted, which is what a person writing YAML does |
 | `anchors` | `true` | A collection that appears twice is written once and referenced |
@@ -180,6 +250,16 @@ value. There is no other way to change a default, and no default is hidden.
 stays correct when streams are concatenated. `emit` puts back the markers the
 document it was given carried, and nothing else.
 
+```moonbit
+test {
+  let docs = @moonyaml.loads_all("a: 1\n---\nb: 2\n")
+  assert_eq(@moonyaml.dumps_all(docs[:]), "---\na: 1\n---\nb: 2\n")
+  // Concatenating two streams still reads as four documents, not as a fault.
+  let text = @moonyaml.dumps_all(docs[:])
+  assert_eq(@moonyaml.loads_all(text + text).length(), 4)
+}
+```
+
 ## What it refuses
 
 Everything it cannot resolve to one reading. YAML's own answer to ambiguity is to
@@ -187,11 +267,34 @@ be permissive, which is how a configuration file comes to mean something other
 than what it looks like; this reader raises `Refused` with a line and a column
 instead:
 
-<!-- nocheck -->
+```moonbit
+test {
+  let refused = fn(src : String) -> String {
+    try {
+      @moonyaml.loads(src) |> ignore
+      "read"
+    } catch {
+      e => e.to_string()
+    }
+  }
+  assert_eq(refused("a: [1, 2\n"), "1:4: ends mid-document")
+  assert_eq(refused("a: *nope\n"), "1:4: no anchor named `nope`")
+}
 ```
-a: [1, 2      =>  1:4:  ends mid-document
-a: *nope      =>  1:4:  no anchor named `nope`
-a: 1, a: 2    =>  2:1:  the key `a` is written twice
+
+A repeated key is not refused by default — the last one wins, as §3.2.1.1 says a
+mapping does — and `duplicates=Reject` is how a caller says otherwise:
+
+```moonbit
+test {
+  let said = try {
+    @moonyaml.loads("a: 1\na: 2\n", flavor=@moonyaml.Flavor::new(duplicates=Reject)) |> ignore
+    "read"
+  } catch {
+    e => e.to_string()
+  }
+  assert_eq(said, "2:1: the key `a` is written twice")
+}
 ```
 
 A mapping key that is itself a collection is refused by `loads`, because the tree
