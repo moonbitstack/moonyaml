@@ -58,18 +58,16 @@
         <figure class="figure">
           <figcaption>tour.mbt</figcaption>
           <button class="copy" type="button">copy</button>
-          <pre><code><span class="c">// one document, read four ways</span>
-<span class="k">let</span> config = @moonyaml.loads(
-  #|<span class="k">server:</span>
-  #|  <span class="k">host:</span> 0.0.0.0
-  #|  <span class="k">port:</span> <span class="n">12000</span>
-  #|<span class="k">limits:</span> <span class="a">&amp;shared</span> { <span class="k">files:</span> <span class="n">1000</span> }
-  #|<span class="k">upload:</span> <span class="a">*shared</span>
-)
-
-@moonyaml.dumps(config)     <span class="c">// back to YAML</span>
-@moonyaml.loads_all(text)   <span class="c">// every document</span>
-@moonyaml.parse_all(text)   <span class="c">// comments kept</span></code></pre>
+          <pre><code><span class="c">// one document, read as a value and written back</span>
+<span class="k">fn</span> main <span class="k">raise</span> {
+  <span class="k">let</span> src =
+    #|<span class="k">server:</span>
+    #|  <span class="k">host:</span> 0.0.0.0
+    #|  <span class="k">port:</span> <span class="n">12000</span>
+  <span class="k">let</span> tree = @moonyaml.loads(src + <span class="s">"\n"</span>)
+  println(tree.stringify())
+  println(@moonyaml.dumps(tree))
+}</code></pre>
         </figure>
       </section>
 
@@ -240,14 +238,12 @@
           <figure class="figure">
             <figcaption>events in, events out</figcaption>
             <button class="copy" type="button">copy</button>
-            <pre><code><span class="c">+STR</span>
-<span class="c"> +DOC</span>
-<span class="c">  +MAP</span>
-<span class="k">   =VAL :name</span>
-<span class="k">   =VAL :web</span>
-<span class="c">  -MAP</span>
-<span class="c"> -DOC</span>
-<span class="c">-STR</span></code></pre>
+            <pre><code><span class="c">+DOC</span>
+<span class="c"> +MAP</span>
+<span class="k">  =VAL :name</span>
+<span class="k">  =VAL :web</span>
+<span class="c"> -MAP</span>
+<span class="c">-DOC</span></code></pre>
           </figure>
         </div>
       </section>

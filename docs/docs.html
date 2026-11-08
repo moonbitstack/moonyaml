@@ -106,17 +106,15 @@
           sequences arrays, and a scalar becomes whatever the schema says its text
           means.
         </p>
-        <pre><code><span class="k">let</span> config = @moonyaml.loads(
+        <pre><code><span class="k">let</span> src =
   #|<span class="k">server:</span>
   #|  <span class="k">host:</span> 0.0.0.0
   #|  <span class="k">port:</span> <span class="n">12000</span>
-  #|<span class="k">tags:</span> [http, native]
-)
-
-<span class="k">match</span> config {
-  Json::Object(m) =&gt; println(m.get(<span class="s">"server"</span>).unwrap().stringify())
-  _ =&gt; ()
-}</code></pre>
+<span class="k">let</span> config = @moonyaml.loads(src + <span class="s">"\n"</span>)
+assert_eq(
+  config.stringify(),
+  <span class="s">"{\"server\":{\"host\":\"0.0.0.0\",\"port\":12000}}"</span>,
+)</code></pre>
         <ul>
           <li><code>loads(src) -&gt; Json raise Refused</code> — one document. A second one is <code>Trailing</code>, because a caller expecting one file's worth of configuration should be told it got a stream.</li>
           <li><code>loads_all(src) -&gt; Array[Json]</code> — every document in a <code>---</code> stream, in order. An empty stream is <code>[]</code>, not <code>[null]</code>: nothing is not the same as one document containing nothing.</li>
@@ -132,11 +130,14 @@
           is what 1.2 says they are. Quoting something makes it a string whatever
           it looks like, and a tag overrides the schema.
         </p>
-        <pre><code>@moonyaml.loads(<span class="s">"a: yes\nb: 014\nc: 12:30\n"</span>).stringify()
-<span class="c">// {"a":"yes","b":14,"c":"12:30"}</span>
-
-@moonyaml.loads(<span class="s">"a: [1, 2, 3]\nb: {x: 1}\n"</span>).stringify()
-<span class="c">// {"a":[1,2,3],"b":{"x":1}}</span></code></pre>
+        <pre><code>assert_eq(
+  @moonyaml.loads(<span class="s">"a: yes\nb: 014\nc: 12:30\n"</span>).stringify(),
+  <span class="s">"{\"a\":\"yes\",\"b\":14,\"c\":\"12:30\"}"</span>,
+)
+assert_eq(
+  @moonyaml.loads(<span class="s">"a: [1, 2, 3]\nb: {x: 1}\n"</span>).stringify(),
+  <span class="s">"{\"a\":[1,2,3],\"b\":{\"x\":1}}"</span>,
+)</code></pre>
 
         <h2 id="streams">Streams and files</h2>
         <p>
@@ -145,16 +146,12 @@
           all of them; <code>load</code> takes the bytes and decodes UTF-8 first,
           with the error a byte-level one when it is not.
         </p>
-        <pre><code><span class="k">let</span> docs = @moonyaml.loads_all(
-  #|<span class="k">---</span>
-  #|<span class="k">first:</span> <span class="n">1</span>
-  #|<span class="k">---</span>
-  #|<span class="k">second:</span> <span class="n">2</span>
-)
-println(docs.length())  <span class="c">// 2</span>
+        <pre><code><span class="k">let</span> docs = @moonyaml.loads_all(<span class="s">"---\nfirst: 1\n---\nsecond: 2\n"</span>)
+assert_eq(docs.length(), <span class="n">2</span>)
+assert_eq(docs[<span class="n">0</span>].stringify(), <span class="s">"{\"first\":1}"</span>)
 
-<span class="k">let</span> from_disk = @moonyaml.load(bytes)   <span class="c">// one document</span>
-<span class="k">let</span> all = @moonyaml.load_all(bytes)      <span class="c">// every document</span></code></pre>
+<span class="k">let</span> from_disk = @moonyaml.load(b<span class="s">"---\nfirst: 1\n"</span>[:])
+assert_eq(from_disk.stringify(), <span class="s">"{\"first\":1}"</span>)</code></pre>
         <div class="note">
           <p>
             <b>A BOM is not content.</b> <code>load</code> skips one by default,
@@ -190,11 +187,24 @@ println(docs.length())  <span class="c">// 2</span>
           </tbody>
         </table>
         </div>
-        <p>Each is a value of the same shape, so a caller can take one as a parameter:</p>
-        <pre><code><span class="k">let</span> config = @yaml11.loads(src)      <span class="c">// yes is a boolean here</span>
-<span class="k">let</span> legacy = @yaml10.loads(src)      <span class="c">// and y is one too</span>
-<span class="k">let</span> plain  = @strict.loads(src)      <span class="c">// every scalar is a string</span>
-<span class="k">let</span> asked  = @any.loads(src)         <span class="c">// %YAML 1.1 at the top decides</span></code></pre>
+        <p>Each is a value of the same shape, so a caller can take one as a parameter. One file, four readings:</p>
+        <pre><code><span class="k">let</span> src = <span class="s">"enabled: yes\nmask: 014\nstarts: 12:30\n"</span>
+assert_eq(
+  @moonyaml.loads(src).stringify(),
+  <span class="s">"{\"enabled\":\"yes\",\"mask\":14,\"starts\":\"12:30\"}"</span>,
+)
+assert_eq(
+  @yaml11.loads(src).stringify(),
+  <span class="s">"{\"enabled\":true,\"mask\":12,\"starts\":750}"</span>,
+)
+assert_eq(
+  @yaml10.loads(src).stringify(),
+  <span class="s">"{\"enabled\":true,\"mask\":12,\"starts\":750}"</span>,
+)
+assert_eq(
+  @strict.loads(src).stringify(),
+  <span class="s">"{\"enabled\":\"yes\",\"mask\":\"014\",\"starts\":\"12:30\"}"</span>,
+)</code></pre>
         <p>
           <code>any</code> is the only package that guesses, and it guesses once,
           from the document, at the top. A <code>%YAML 1.1</code> directive makes
@@ -220,14 +230,21 @@ println(docs.length())  <span class="c">// 2</span>
           flow collections, no anchors or aliases, no tags, and a key written
           twice is a fault rather than a decision.
         </p>
-        <pre><code>@strict.loads(<span class="s">"port: 8080\nenabled: yes\n"</span>).stringify()
-<span class="c">// {"port":"8080","enabled":"yes"}</span>
+        <pre><code>assert_eq(
+  @strict.loads(<span class="s">"port: 8080\nenabled: yes\n"</span>).stringify(),
+  <span class="s">"{\"port\":\"8080\",\"enabled\":\"yes\"}"</span>,
+)
 
-@strict.loads(<span class="s">"list: [1, 2]\n"</span>)
-<span class="c">// refused — 1:7: flow style is not allowed here</span>
-
-@strict.loads(<span class="s">"a: &amp;x 1\nb: *x\n"</span>)
-<span class="c">// refused — 1:4: an anchor is not allowed here</span></code></pre>
+<span class="k">let</span> refused = <span class="k">fn</span>(src : String) -&gt; String {
+  <span class="k">try</span> {
+    @strict.loads(src) |&gt; ignore
+    <span class="s">"read"</span>
+  } <span class="k">catch</span> {
+    e =&gt; e.to_string()
+  }
+}
+assert_eq(refused(<span class="s">"list: [1, 2]\n"</span>), <span class="s">"1:7: flow style is not allowed here"</span>)
+assert_eq(refused(<span class="s">"a: &amp;x 1\nb: *x\n"</span>), <span class="s">"1:4: an anchor is not allowed here"</span>)</code></pre>
         <p>
           What it buys is a file that cannot say anything surprising: a value that
           looks like a number is the text of that number, and a reader that wants
@@ -245,9 +262,16 @@ println(docs.length())  <span class="c">// 2</span>
           a <code>---</code> or closed by a <code>...</code> — so the file can be
           written back.
         </p>
-        <pre><code><span class="k">let</span> doc = @moonyaml.parse(src)
-println(@moonyaml.emit(doc))        <span class="c">// the same document</span>
-println(doc.to_json().stringify())  <span class="c">// what it means</span></code></pre>
+        <pre><code><span class="k">let</span> src =
+  #|<span class="c"># the deployment</span>
+  #|<span class="k">name:</span> web
+  #|<span class="k">ports:</span> [<span class="n">80</span>, <span class="n">443</span>]
+<span class="k">let</span> doc = @moonyaml.parse(src + <span class="s">"\n"</span>)
+assert_eq(@moonyaml.emit(doc), src + <span class="s">"\n"</span>)        <span class="c">// the same document</span>
+assert_eq(
+  doc.to_json().stringify(),
+  <span class="s">"{\"name\":\"web\",\"ports\":[80,443]}"</span>,
+)                                                  <span class="c">// what it means</span></code></pre>
         <div class="table-wrap">
           <table>
           <thead>
@@ -270,21 +294,32 @@ println(doc.to_json().stringify())  <span class="c">// what it means</span></cod
           legitimately have a sequence as a key or the same key written twice. An
           alias stays an alias, so <code>emit</code> writes <code>*shared</code>
           rather than the several lines it stands for. <code>to_json</code> is
-          there for the caller who wants the value: it resolves the aliases and
-          folds <code>&lt;&lt;</code> in.
+          there for the caller who wants the value: it resolves the aliases, and
+          merges a <code>&lt;&lt;</code> only where the schema says that key is a
+          merge — <code>yaml11</code> does, 1.2 does not.
         </p>
         <p>Build one by hand, or from a value:</p>
-        <pre><code><span class="k">let</span> doc = @moonyaml.Node::map([
-  (@moonyaml.Node::scalar(<span class="s">"name"</span>), @moonyaml.Node::scalar(<span class="s">"web"</span>)),
+        <pre><code><span class="k">let</span> built = @moonyaml.Node::map([
   (
-    @moonyaml.Node::scalar(<span class="s">"ports"</span>),
+    @moonyaml.Node::scalar(<span class="s">"name"</span>),
+    @moonyaml.Node::scalar(<span class="s">"web"</span>),
+  ),
+  (
+    @moonyaml.Node::scalar(<span class="s">"ports"</span>)
+      .commented(before=[<span class="s">"what it listens on"</span>], after=<span class="s">""</span>),
     @moonyaml.Node::seq([
-      @moonyaml.Node::scalar(<span class="s">"80"</span>), @moonyaml.Node::scalar(<span class="s">"443"</span>),
-    ]).commented(before=[<span class="s">"what it listens on"</span>], after=<span class="s">""</span>),
+      @moonyaml.Node::scalar(<span class="s">"80"</span>),
+      @moonyaml.Node::scalar(<span class="s">"443"</span>),
+    ]).in_flow(<span class="k">true</span>),
   ),
 ])
+assert_eq(
+  @moonyaml.emit(built),
+  <span class="s">"name: web\n# what it listens on\nports: [80, 443]\n"</span>,
+)
 
-<span class="k">let</span> built = @moonyaml.Node::of_json(@moonyaml.loads(src))</code></pre>
+<span class="k">let</span> from_value = @moonyaml.Node::of_json(@moonyaml.loads(<span class="s">"a: 1\n"</span>))
+assert_eq(@moonyaml.emit(from_value), <span class="s">"a: 1\n"</span>)</code></pre>
         <p>
           Walking a tree is a match on <code>kind</code>. An edit is the tree you
           put back — the same node with another value, the same pair with another
@@ -292,17 +327,24 @@ println(doc.to_json().stringify())  <span class="c">// what it means</span></cod
         </p>
         <pre><code><span class="k">let</span> renamed = <span class="k">match</span> doc.kind {
   Mapping(pairs) =&gt;
-    @moonyaml.Node::map(
-      pairs.map(<span class="k">fn</span>(pair) {
-        <span class="k">if</span> pair.0.text == <span class="s">"name"</span> {
-          (pair.0, @moonyaml.Node::scalar(<span class="s">"api"</span>))
-        } <span class="k">else</span> {
-          pair
-        }
-      }),
-    )
+    {
+      ..doc,
+      kind: Mapping(
+        pairs.map(<span class="k">fn</span>(pair) {
+          <span class="k">if</span> pair.<span class="n">0</span>.text == <span class="s">"name"</span> {
+            (pair.<span class="n">0</span>, @moonyaml.Node::scalar(<span class="s">"api"</span>))
+          } <span class="k">else</span> {
+            pair
+          }
+        }),
+      ),
+    }
   _ =&gt; doc
-}</code></pre>
+}
+assert_eq(
+  @moonyaml.emit(renamed),
+  <span class="s">"# the deployment\nname: api\nports: [80, 443]\n"</span>,
+)</code></pre>
 
         <h2 id="writing">Writing a document back</h2>
         <p>
@@ -311,9 +353,16 @@ println(doc.to_json().stringify())  <span class="c">// what it means</span></cod
           scalar, the comments, the anchors, the tags, and the markers the
           document carried.
         </p>
-        <pre><code>@moonyaml.emit(doc)               <span class="c">// indent 2, from column 0</span>
-@moonyaml.emit(doc, indent=<span class="n">4</span>)     <span class="c">// four spaces per level</span>
-@moonyaml.emit(doc, from=<span class="n">2</span>)       <span class="c">// embedded, starting at column 2</span></code></pre>
+        <pre><code><span class="k">let</span> nested = <span class="s">"a:\n  b:\n    c: 1\n"</span>
+assert_eq(@moonyaml.emit(@moonyaml.parse(nested)), nested)          <span class="c">// indent 2</span>
+assert_eq(
+  @moonyaml.emit(@moonyaml.parse(nested), indent=<span class="n">4</span>),
+  <span class="s">"a:\n    b:\n        c: 1\n"</span>,
+)                                                          <span class="c">// four spaces a level</span>
+assert_eq(
+  @moonyaml.emit(@moonyaml.parse(nested), from=<span class="n">2</span>),
+  <span class="s">"  a:\n    b:\n      c: 1\n"</span>,
+)                                                          <span class="c">// embedded at column 2</span></code></pre>
         <p>
           Two things it settles rather than keeps. A scalar whose text holds a
           break is written over several lines, with each break spelled as the
@@ -340,7 +389,10 @@ println(doc.to_json().stringify())  <span class="c">// what it means</span></cod
           lines.
         </p>
         <pre><code><span class="k">let</span> doc = @moonyaml.parse(<span class="s">"name: web\nports: [80, 443]\n"</span>)
-print(doc.events())</code></pre>
+assert_eq(
+  doc.events(),
+  <span class="s">"+DOC\n +MAP\n  =VAL :name\n  =VAL :web\n  =VAL :ports\n  +SEQ []\n   =VAL :80\n   =VAL :443\n  -SEQ\n -MAP\n-DOC\n"</span>,
+)</code></pre>
         <pre class="wraps"><code>+DOC
  +MAP
   =VAL :name
@@ -369,11 +421,20 @@ print(doc.events())</code></pre>
           <code>Json</code> value already uses — a document becomes that record
           and back:
         </p>
-        <pre><code><span class="k">let</span> server : Server = @moonyaml.loads_as(src)
-<span class="k">let</span> yaml = @moonyaml.dumps_of(server)
-<span class="k">let</span> again = @moonyaml.round_trip[Server](src, adjust=<span class="k">fn</span>(s) {
-  s.port = <span class="n">8081</span>
-})</code></pre>
+        <pre><code><span class="c">#derive(FromJson, ToJson)</span>
+<span class="k">struct</span> Server {
+  host : String
+  mut port : Int
+}
+
+<span class="k">let</span> server : Server = @moonyaml.loads_as(<span class="s">"host: 0.0.0.0\nport: 12000\n"</span>)
+assert_eq(@moonyaml.dumps_of(server), <span class="s">"host: 0.0.0.0\nport: 12000\n"</span>)
+
+<span class="k">let</span> again : String = @moonyaml.round_trip(
+  <span class="s">"host: 0.0.0.0\nport: 12000\n"</span>,
+  adjust=<span class="k">fn</span>(s : Server) { s.port = <span class="n">8081</span> },
+)
+assert_eq(again, <span class="s">"host: 0.0.0.0\nport: 8081\n"</span>)</code></pre>
         <p>
           <code>loads_as</code> and <code>load_as</code> raise
           <code>Malformed</code>, which has two arms:
@@ -398,10 +459,13 @@ print(doc.events())</code></pre>
           <code>dumps</code> writes block style at indent 2, quoting only what has
           to be quoted. Every choice it makes is a field of <code>Style</code>.
         </p>
-        <pre><code>@moonyaml.dumps(value)                       <span class="c">// block, indent 2, width 80</span>
-@moonyaml.dumps(value, style=@moonyaml.flow)  <span class="c">// JSON's own shape</span>
-@moonyaml.dumps(value, indent=<span class="n">4</span>, sort=<span class="k">true</span>)   <span class="c">// flat parameters win</span>
-@moonyaml.dumps_all([a, b])                  <span class="c">// each opened with ---</span></code></pre>
+        <pre><code><span class="k">let</span> value = @moonyaml.loads(<span class="s">"a: 1\nb: [1, 2]\n"</span>)
+assert_eq(@moonyaml.dumps(value), <span class="s">"a: 1\nb:\n  - 1\n  - 2\n"</span>)              <span class="c">// block, indent 2</span>
+assert_eq(@moonyaml.dumps(value, style=@moonyaml.flow), <span class="s">"{a: 1, b: [1, 2]}\n"</span>)  <span class="c">// JSON's shape</span>
+assert_eq(
+  @moonyaml.dumps(@moonyaml.loads(<span class="s">"b: 1\na: 2\n"</span>), indent=<span class="n">4</span>, sort=<span class="k">true</span>),
+  <span class="s">"a: 2\nb: 1\n"</span>,
+)                                                                        <span class="c">// flat parameters win</span></code></pre>
         <div class="table-wrap">
           <table>
           <thead>
@@ -409,7 +473,7 @@ print(doc.events())</code></pre>
           </thead>
           <tbody>
             <tr><td><code>indent</code></td><td>2</td><td>Two columns per level: what almost every configuration file in the wild uses, and what fits a diff</td></tr>
-            <tr><td><code>width</code></td><td>80</td><td>Where a collection stops fitting on one line and <code>Auto</code> breaks it</td></tr>
+            <tr><td><code>width</code></td><td>80</td><td>Where a collection stops fitting on one line, and where a plain scalar that runs past it is folded at a space</td></tr>
             <tr><td><code>layout</code></td><td><code>Block</code></td><td>Block reads better in a diff. <code>Flow</code> is JSON's shape, <code>Auto</code> decides per collection by width</td></tr>
             <tr><td><code>quotes</code></td><td><code>Minimal</code></td><td>Quote only what has to be quoted, which is what a person writing YAML does</td></tr>
             <tr><td><code>anchors</code></td><td><code>true</code></td><td>A collection that appears twice is written once and referenced</td></tr>
@@ -438,9 +502,18 @@ print(doc.events())</code></pre>
           value. There is no other way to change a default, and no default is
           hidden.
         </p>
-        <pre><code>@moonyaml.loads(src, flavor=@moonyaml.Flavor::new(duplicates=Reject))
-@moonyaml.loads(src, flavor={ ..@moonyaml.strict, budget: <span class="n">1000</span> })
-@moonyaml.dumps(value, style=@moonyaml.Style::new(quotes=Single))</code></pre>
+        <pre><code><span class="c">// The preset, a record, and a flat argument, in that order of authority.</span>
+assert_eq(
+  @moonyaml.dumps(@moonyaml.loads(<span class="s">"b: 1\na: 2\n"</span>), style=@moonyaml.Style::new(sort=<span class="k">true</span>)),
+  <span class="s">"a: 2\nb: 1\n"</span>,
+)
+assert_eq(
+  @moonyaml.dumps(
+    @moonyaml.loads(<span class="s">"a: \"1\"\n"</span>),
+    style=@moonyaml.Style::new(quotes=@moonyaml.Double),
+  ),
+  <span class="s">"a: \"1\"\n"</span>,
+)</code></pre>
         <div class="table-wrap">
           <table>
           <thead>
@@ -455,21 +528,35 @@ print(doc.events())</code></pre>
         </table>
         </div>
         <p>
+          The same for <code>Flavor</code>: <code>duplicates=Reject</code> turns a
+          key written twice into a refusal with the position of the second one.
+        </p>
+        <pre><code><span class="k">let</span> repeated = <span class="k">try</span> {
+  @moonyaml.loads(<span class="s">"a: 1\na: 2\n"</span>, flavor=@moonyaml.Flavor::new(duplicates=@moonyaml.Reject)) |&gt; ignore
+  <span class="s">"read"</span>
+} <span class="k">catch</span> {
+  e =&gt; e.to_string()
+}
+assert_eq(repeated, <span class="s">"2:1: the key `a` is written twice"</span>)</code></pre>
+        <p>
           The budget is what an alias costs a reader that does not count: an alias
           may name a node that itself holds aliases, so ten lines can expand to
           millions of nodes. Here the expansion is counted, and going over it is
           <code>Exceeded</code> with the count and the limit in it, not an
           out-of-memory.
         </p>
-        <pre><code>@moonyaml.loads(
+        <pre><code><span class="k">let</span> src =
   #|<span class="k">a:</span> <span class="a">&amp;a</span> [x, x]
   #|<span class="k">b:</span> <span class="a">&amp;b</span> [*a, *a]
   #|<span class="k">c:</span> <span class="a">&amp;c</span> [*b, *b]
   #|<span class="k">d:</span> [*c, *c]
-  ,
-  flavor=@moonyaml.Flavor::new(budget=<span class="n">8</span>),
-)
-<span class="c">// refused — 2:8: expands to 9 nodes, over 8</span></code></pre>
+<span class="k">let</span> over = <span class="k">try</span> {
+  @moonyaml.loads(src, flavor=@moonyaml.Flavor::new(budget=<span class="n">8</span>)) |&gt; ignore
+  <span class="s">"read"</span>
+} <span class="k">catch</span> {
+  e =&gt; e.to_string()
+}
+assert_eq(over, <span class="s">"2:8: expands to 9 nodes, over 8"</span>)</code></pre>
 
         <h2 id="refusals">Refusals</h2>
         <p>
