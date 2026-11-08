@@ -65,8 +65,8 @@ pub(all) struct Style {
   layout : Layout
   /// Which quote a string gets when it needs one. See [`Quotes`].
   quotes : Quotes
-  /// Whether a subtree written twice is written once with `&a1` and referred to by
-  /// `*a1` after. Off for output that a person will edit by hand, because an anchor
+  /// Whether a subtree written twice is written once with `&a0` and referred to by
+  /// `*a0` after. Off for output that a person will edit by hand, because an anchor
   /// is a thing to read around; on by default for files a program writes, where it
   /// turns a repeated block into one line.
   anchors : Bool
@@ -119,7 +119,7 @@ pub let flow : Style = { ..style, layout: Flow, anchors: false, }
 pub fn Style::new(
   indent~ : Int32 = indent,
   width~ : Int32 = width,
-  layout~ : Layout = Auto,
+  layout~ : Layout = Block,
   quotes~ : Quotes = Minimal,
   anchors~ : Bool = true,
   sort~ : Bool = false,
@@ -309,32 +309,40 @@ fn write_scalar(
 /// A plain scalar's line breaks read back as spaces (§6.5), so folding one at a
 /// space is the one place a writer can wrap a long line without changing it. It is
 /// done only where that is exactly true: single spaces inside, none at either end.
+///
+/// `column` is where the continuation lines start, `start` is the column the text
+/// itself begins in — the two differ for a scalar that shares a line with the key
+/// or the dash that owns it.
 fn write_folded(
   out : StringBuilder,
   s : String,
   column : Int32,
   width : Int32,
+  start~ : Int32 = column,
 ) -> Unit {
-  if width <= 0 || column + s.length() <= width || !foldable(s) {
+  if width <= 0 || start + s.length() <= width || !foldable(s) {
     out.write_string(s)
     return
   }
-  let mut col = column
-  let mut start = 0
+  let mut col = start
+  let mut begin = 0
+  let mut fresh = true
   for i = 0; i <= s.length(); i = i + 1 {
-    if i == s.length() || (s[i].to_int() == 0x20 && i > start) {
-      let piece = s[start:i].to_owned()
-      if col > column && col + 1 + piece.length() > width {
+    if i == s.length() || (s[i].to_int() == 0x20 && i > begin) {
+      let piece = s[begin:i].to_owned()
+      if !fresh && col + 1 + piece.length() > width {
         out.write_char('\n')
         pad(out, column)
         col = column
-      } else if col > column {
+        fresh = true
+      } else if !fresh {
         out.write_char(' ')
         col = col + 1
       }
       out.write_string(piece)
       col = col + piece.length()
-      start = i + 1
+      fresh = false
+      begin = i + 1
     }
   }
 }
@@ -588,7 +596,21 @@ fn block(out : Out, value : Json, column : Int32) -> Unit {
           write_literal(out.buf, text, column + step)
         } else if inline(held) {
           out.buf.write_char(' ')
-          write_inline(out.buf, held, style, rules)
+          // A scalar that will not fit on the key's line is folded, which is the
+          // one line break a plain scalar reads back as the space it replaced.
+          if held is String(text) &&
+            style.width > 0 &&
+            column + name.length() + 2 + text.length() > style.width {
+            write_folded(
+              out.buf,
+              text,
+              column + step,
+              style.width,
+              start=column + name.length() + 2,
+            )
+          } else {
+            write_inline(out.buf, held, style, rules)
+          }
         } else if style.layout is Auto &&
           fits(held, style, column + step, rules) {
           out.buf.write_char(' ')
@@ -645,7 +667,7 @@ fn block(out : Out, value : Json, column : Int32) -> Unit {
       if literal_of(value) is Some(text) {
         write_literal(out.buf, text, column + step)
       } else if value is String(s) {
-        write_folded(out.buf, s, column, style.width)
+        write_folded(out.buf, s, column, style.width, start=column + 2)
       } else {
         write_scalar(out.buf, value, style, rules)
       }
