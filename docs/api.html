@@ -641,7 +641,7 @@
 }</code></pre>
 <div class="prose"><p>What a YAML version does that the scanner cannot decide for it.</p>
 <p>The scanner in this package is shared; what a version resolves a scalar to, and what it allows besides, is a <code>Schema</code>.</p>
-<p>The one in this package is <a href="#core"><code>core</code></a>, the core schema of §10.2. The <code>v11</code>, <code>v10</code>, <code>strict</code> and <code>any</code> packages beside it are each a schema over the same scanner, which is why a version is a resolver rather than a fork of the reader.</p></div>
+<p>The one in this package is <a href="#core"><code>core</code></a>, the core schema of §10.2. The <code>yaml11</code>, <code>yaml10</code>, <code>strict</code> and <code>any</code> packages beside it are each a schema over the same scanner, which is why a version is a resolver rather than a fork of the reader.</p></div>
 <div class="field">
 <code class="name">resolve : (String, Bool, String?, At, Rules) -&gt; @json.Json raise Refused</code>
 <div class="prose"><p>A scalar as the value it denotes: its text, whether it was quoted, the tag it carried if any, where it was, and the rules that decide.</p></div>
@@ -704,7 +704,7 @@
 </div>
 <div class="field">
 <code class="name">anchors : Bool</code>
-<div class="prose"><p>Whether a subtree written twice is written once with <code>&amp;a1</code> and referred to by <code>*a1</code> after. Off for output that a person will edit by hand, because an anchor is a thing to read around; on by default for files a program writes, where it turns a repeated block into one line.</p></div>
+<div class="prose"><p>Whether a subtree written twice is written once with <code>&amp;a0</code> and referred to by <code>*a0</code> after. Off for output that a person will edit by hand, because an anchor is a thing to read around; on by default for files a program writes, where it turns a repeated block into one line.</p></div>
 </div>
 <div class="field">
 <code class="name">sort : Bool</code>
@@ -851,7 +851,7 @@
 <div class="prose"><p>The one document in <code>src</code>, as a value of type <code>T</code>.</p>
 <pre><code>let config : Config = @moonyaml.loads_as(src)</code></pre>
 <p><code>T</code> is anything that implements core's <code>FromJson</code>, which is the same trait a JSON document is read through: a type written for <code>moonjson</code> needs no second implementation to be read from YAML. That is the point of reading into the same <code>Json</code> tree — the shape of a value is one question, and which text it arrived in is another.</p>
-<p>The default schema is 1.2's core. Read a 1.1 file with <code>@moonyaml/v11</code>'s schema, or let <code>@moonyaml/any</code> pick it from the document.</p></div>
+<p>The default schema is 1.2's core. Read a 1.1 file with <code>@yaml11</code>'s schema, or let <code>@any</code> pick it from the document.</p></div>
 </div>
 <div class="item" id="parse">
 <pre class="sig"><code>pub fn parse(StringView, flavor? : Flavor, schema? : Schema) -&gt; Node raise Refused</code></pre>

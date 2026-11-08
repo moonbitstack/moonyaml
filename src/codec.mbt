@@ -47,7 +47,7 @@ pub extend Malformed with Show::{to_string, output}
 /// is another.
 ///
 /// The default schema is 1.2's core. Read a 1.1 file with
-/// `@moonyaml/v11`'s schema, or let `@moonyaml/any` pick it from the document.
+/// `@yaml11`'s schema, or let `@any` pick it from the document.
 pub fn[T : @json.FromJson] loads_as(
   src : StringView,
   flavor~ : Flavor = strict,

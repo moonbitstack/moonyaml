@@ -257,8 +257,8 @@ pub let ancient_rules : Rules = { ..legacy_rules, letters: true, }
 /// The scanner in this package is shared; what a version resolves a scalar to, and
 /// what it allows besides, is a `Schema`.
 ///
-/// The one in this package is [`core`], the core schema of §10.2. The `v11`,
-/// `v10`, `strict` and `any` packages beside it are each a schema over the same
+/// The one in this package is [`core`], the core schema of §10.2. The `yaml11`,
+/// `yaml10`, `strict` and `any` packages beside it are each a schema over the same
 /// scanner, which is why a version is a resolver rather than a fork of the reader.
 pub(all) struct Schema {
   /// A scalar as the value it denotes: its text, whether it was quoted, the tag
