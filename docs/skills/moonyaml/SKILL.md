@@ -123,6 +123,13 @@ test {
 - `dumps` writes block style at two spaces and quotes only what has to be quoted.
   `Style` and `Flavor` are records with presets; `Style::new()` by itself is the
   preset, and a flat argument (`indent=4`, `sort=true`) wins over both.
+- What counts as "has to be quoted" comes from the `rules` you pass: with
+  `rules=@moonyaml.legacy_rules` a `yes`, a `1_000` or a `1:30` that is a string
+  is quoted, so a 1.1 reader gets the string. The preset rules quote only what
+  1.2 would resolve.
+- A whole number wider than a double holds keeps the digits it was read with, so
+  an identifier of twenty digits survives a read and a write; compare it with
+  `stringify()`, not as a `Double`.
 - Every `Refused` carries `at`, `line` and `column`, and prints as
   `line:column: what` — `1:4: ends mid-document`. Match on the arm to tell a
   broken file from an unsupported one.

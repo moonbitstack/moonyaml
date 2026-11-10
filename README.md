@@ -101,6 +101,10 @@ hold a list of versions instead of a branch per version.
 | Structure | Anchors and aliases, tags including `%TAG` handles and verbatim `!<…>`, `%YAML`, `---` and `...` markers, `? key` explicit pairs, complex keys |
 | Resolution | The core schema of §10.2: `null`/`~`, booleans, decimal, `0o` and `0x` integers, floats with exponents, `.inf` and `.nan` |
 
+A whole number wider than a double holds keeps the digits it was written with, so
+a key of twenty digits — a snowflake, a database id — reads back as the same
+twenty digits instead of the one the double rounds to.
+
 `yes` and `no` are strings here, as YAML 1.2 says they are. They are booleans in
 1.1, which is `yaml11`, and the difference is a package boundary rather than a
 flag: `014` is twelve there and fourteen here, and `1:30` is ninety there and a
@@ -308,6 +312,28 @@ tag, and that is what happens: the scalar keeps the type its text has, so
 `!!nope 1` is the number 1. Refusing the file instead would make it unreadable,
 and inventing a type for it would be worse. `parse` keeps the tag on the node, so
 a document can be written back with it intact.
+
+## Conformance
+
+The reader is checked against the YAML Test Suite — 402 cases, every one of them
+read as the JSON the suite says it denotes, refused where the suite says it must
+be, or held to the event stream it records — and the writer is checked by writing
+each of those documents back and reading it again as the same document.
+
+The reader and the writer are also checked against another implementation in both
+directions: a corpus of documents written here and read back there, and the same
+corpus written there and read back here, with the value compared after each leg,
+under YAML 1.2 and again under 1.1. Every case agrees.
+
+Two readings differ from some implementations, on purpose:
+
+- A scalar shaped like a timestamp is a string. The core schema of 1.2 has no
+  timestamp type, so `2024-01-01` is the text it is; a reader that keeps 1.1's
+  timestamp resolver hands back a date.
+- A lone `y`, `Y`, `n` or `N` is a string, in `yaml11` as well. YAML 1.1's type
+  repository lists the four as booleans and some readers take them that way;
+  here they are letters, because a lone `n` in a configuration file is far more
+  often a name than a no. `yaml10` is where the four are booleans.
 
 ## Examples
 

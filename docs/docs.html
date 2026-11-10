@@ -138,6 +138,16 @@ assert_eq(
   @moonyaml.loads(<span class="s">"a: [1, 2, 3]\nb: {x: 1}\n"</span>).stringify(),
   <span class="s">"{\"a\":[1,2,3],\"b\":{\"x\":1}}"</span>,
 )</code></pre>
+        <p>
+          A whole number wider than a double holds keeps the digits it was written
+          with. The tree carries a double, so the text is kept beside it, and an
+          identifier of twenty digits comes back as the same twenty digits rather
+          than the one the double rounds to.
+        </p>
+        <pre><code>assert_eq(
+  @moonyaml.loads(<span class="s">"id: 12345678901234567890\n"</span>).stringify(),
+  <span class="s">"{\"id\":12345678901234567890}"</span>,
+)</code></pre>
 
         <h2 id="streams">Streams and files</h2>
         <p>
@@ -492,6 +502,22 @@ assert_eq(
           tree can be written with 1.1's spellings — <code>yes</code> for a
           boolean, <code>014</code> for twelve — rather than 1.2's.
         </p>
+        <p>
+          The rules a caller passes are also what decides the quoting: a string
+          that a reader with those rules would resolve — <code>yes</code>,
+          <code>1_000</code>, <code>1:30</code> — is quoted, so the file reads
+          back as the same values there. And a document that is nothing but a
+          scalar follows the same rules as a value under a key, because at the
+          left margin there is nothing else to protect it.
+        </p>
+        <pre><code>assert_eq(
+  @moonyaml.dumps(@moonyaml.loads(<span class="s">"'true'"</span>)),
+  <span class="s">"\"true\"\n"</span>,
+)                                                        <span class="c">// a word that would read as a boolean</span>
+assert_eq(
+  @moonyaml.dumps(@moonyaml.loads(<span class="s">"'yes'"</span>), rules=@moonyaml.legacy_rules),
+  <span class="s">"\"yes\"\n"</span>,
+)                                                        <span class="c">// quoted for a 1.1 reader</span></code></pre>
 
         <h2 id="defaults">Changing a default</h2>
         <p>
