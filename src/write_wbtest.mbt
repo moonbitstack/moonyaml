@@ -125,3 +125,84 @@ test "bytes in and bytes out" {
   assert_eq(dump(loads("{a: 1}"[:])), b"a: 1\n")
   assert_eq(load(b"a: 1\n"[:]).stringify(), "{\"a\":1}")
 }
+
+///|
+test "a document that is one scalar is a document" {
+  // Nothing owns the scalar, so it cannot lean on a key for its quoting: the
+  // same rules have to hold at the left margin.
+  assert_eq(dumps(Json::string("hello")), "hello\n")
+  assert_eq(dumps(Json::string("true")), "\"true\"\n")
+  assert_eq(dumps(Json::string("True")), "\"True\"\n")
+  assert_eq(dumps(Json::string("NULL")), "\"NULL\"\n")
+  assert_eq(dumps(Json::string("")), "\"\"\n")
+  assert_eq(dumps(Json::string("#lead")), "\"#lead\"\n")
+  assert_eq(dumps(Json::string("x: y")), "\"x: y\"\n")
+  // At the left margin a bare `...` would end the document instead of being one.
+  assert_eq(dumps(Json::string("...")), "\"...\"\n")
+  assert_eq(loads(dumps(Json::string("..."))[:]).stringify(), "\"...\"")
+}
+
+///|
+test "a document that is one long scalar folds, and one with a break is a block" {
+  let long = "The settings below are read at start-up and never again, which is why they are written on one line."
+  assert_eq(
+    dumps(Json::string(long)),
+    "The settings below are read at start-up and never again, which is why they are\n  written on one line.\n",
+  )
+  assert_eq(dumps(Json::string("one\ntwo\n")), "|\n  one\n  two\n")
+  assert_eq(dumps(Json::string("one\ntwo")), "|-\n  one\n  two\n")
+  for s in [long, "one\ntwo\n", "one\ntwo"] {
+    assert_eq(
+      loads(dumps(Json::string(s))[:]).stringify(),
+      Json::string(s).stringify(),
+    )
+  }
+}
+
+///|
+test "a character some readers fold into a space is written as an escape" {
+  // 1.2 lists these as characters, and a reader with 1.1's scanner folds them
+  // into a space; escaped, both read the character that was written.
+  assert_eq(dumps(Json::string("a\u{85}b")), "\"a\\Nb\"\n")
+  assert_eq(dumps(Json::string("a\u{2028}b")), "\"a\\Lb\"\n")
+  assert_eq(dumps(Json::string("a\u{2029}b")), "\"a\\Pb\"\n")
+  assert_eq(dumps(Json::string("a\u{9f}b")), "\"a\\x9fb\"\n")
+  assert_eq(
+    loads(dumps(Json::string("a\u{85}b"))[:]).stringify(),
+    Json::string("a\u{85}b").stringify(),
+  )
+}
+
+///|
+test "the writer quotes what the rules it was given would resolve" {
+  // A file written for a 1.1 reader: the words and the digits 1.1 gives a type to
+  // are quoted, at the left margin and under a key alike.
+  assert_eq(dumps(Json::string("yes"), rules=legacy_rules), "\"yes\"\n")
+  assert_eq(dumps(Json::string("1_000"), rules=legacy_rules), "\"1_000\"\n")
+  assert_eq(dumps(Json::string("1:30"), rules=legacy_rules), "\"1:30\"\n")
+  assert_eq(
+    dumps(
+      { "a": Json::string("yes"), "b": Json::string("014") },
+      rules=legacy_rules,
+    ),
+    "a: \"yes\"\nb: \"014\"\n",
+  )
+  // The same strings are plain in 1.2, which resolves neither of them — and
+  // `014` is fourteen there, so it stays quoted for the other reason.
+  assert_eq(dumps(Json::string("yes")), "yes\n")
+  assert_eq(dumps({ "b": Json::string("yes") }), "b: yes\n")
+  assert_eq(dumps({ "b": Json::string("014") }), "b: \"014\"\n")
+}
+
+///|
+test "a number wider than a double keeps the digits it was written with" {
+  // The tree holds a double, which rounds this one; the text is kept beside it so
+  // that writing it back is not where an identifier loses its last digits.
+  let n = loads("a: 12345678901234567890\n"[:])
+  assert_eq(n.stringify(), "{\"a\":12345678901234567890}")
+  assert_eq(dumps(n), "a: 12345678901234567890\n")
+  assert_eq(loads("9007199254740993"[:]).stringify(), "9007199254740993")
+  assert_eq(dumps(loads("9007199254740993"[:])), "9007199254740993\n")
+  // A number a double holds exactly is written as its value, not as its text.
+  assert_eq(dumps(loads("a: 8080\n"[:])), "a: 8080\n")
+}

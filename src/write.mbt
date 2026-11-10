@@ -138,8 +138,21 @@ fn bare(s : String, rules : Rules) -> Bool {
   if s.length() == 0 {
     return false
   }
-  if s == "true" || s == "false" || s == "null" || s == "~" {
-    return false
+  match s {
+    "~"
+    | "null"
+    | "Null"
+    | "NULL"
+    | "true"
+    | "True"
+    | "TRUE"
+    | "false"
+    | "False"
+    | "FALSE" => return false
+    // `...` at the left margin ends the document, so a document that is this
+    // string has to be quoted to be one.
+    "..." => return false
+    _ => ()
   }
   if rules.yes_no &&
     (
@@ -177,7 +190,10 @@ fn bare(s : String, rules : Rules) -> Bool {
   }
   for i = 0; i < s.length(); i = i + 1 {
     let c = s[i].to_int()
-    if c < 0x20 || c == 0x7f {
+    // A control character cannot be written as it is; nor can the three that a
+    // 1.1-era reader folds into a space, which would change the value rather
+    // than refuse it.
+    if c < 0x20 || (c >= 0x7f && c <= 0x9f) || c == 0x2028 || c == 0x2029 {
       return false
     }
     if c == ':'.to_int() && (i + 1 == s.length() || is_blank(s[i + 1].to_int())) {
@@ -202,8 +218,11 @@ fn quoted(out : StringBuilder, s : String) -> Unit {
       0x0a => out.write_string("\\n")
       0x0d => out.write_string("\\r")
       0x09 => out.write_string("\\t")
+      0x85 => out.write_string("\\N")
+      0x2028 => out.write_string("\\L")
+      0x2029 => out.write_string("\\P")
       _ =>
-        if c < 0x20 || c == 0x7f {
+        if c < 0x20 || (c >= 0x7f && c <= 0x9f) {
           out.write_string("\\x")
           two_hex(out, c)
         } else {
@@ -278,7 +297,7 @@ fn write_text(
 fn has_control(s : String) -> Bool {
   for i = 0; i < s.length(); i = i + 1 {
     let c = s[i].to_int()
-    if c < 0x20 || c == 0x7f {
+    if c < 0x20 || (c >= 0x7f && c <= 0x9f) || c == 0x2028 || c == 0x2029 {
       return true
     }
   }
@@ -297,7 +316,14 @@ fn write_scalar(
     Null => out.write_string("null")
     True => out.write_string("true")
     False => out.write_string("false")
-    Number(n, ..) => write_number(out, n)
+    Number(n, repr~) =>
+      // A number that arrived with its own text — an integer wider than a double
+      // holds — is written as that text, or the digits it stands for would be
+      // rounded away on the way out.
+      match repr {
+        Some(text) => out.write_string(text)
+        None => write_number(out, n)
+      }
     String(s) => write_text(out, s, style, rules)
     _ => out.write_string("null")
   }
@@ -318,9 +344,10 @@ fn write_folded(
   s : String,
   column : Int32,
   width : Int32,
+  rules~ : Rules,
   start~ : Int32 = column,
 ) -> Unit {
-  if width <= 0 || start + s.length() <= width || !foldable(s) {
+  if width <= 0 || start + s.length() <= width || !foldable(s, rules) {
     out.write_string(s)
     return
   }
@@ -349,8 +376,8 @@ fn write_folded(
 
 ///|
 /// Whether a scalar can be folded without changing what it says.
-fn foldable(s : String) -> Bool {
-  if !bare(s, core_rules) || s.length() == 0 {
+fn foldable(s : String, rules : Rules) -> Bool {
+  if !bare(s, rules) || s.length() == 0 {
     return false
   }
   if is_blank(s[0].to_int()) || is_blank(s[s.length() - 1].to_int()) {
@@ -606,6 +633,7 @@ fn block(out : Out, value : Json, column : Int32) -> Unit {
               text,
               column + step,
               style.width,
+              rules~,
               start=column + name.length() + 2,
             )
           } else {
@@ -667,7 +695,7 @@ fn block(out : Out, value : Json, column : Int32) -> Unit {
       if literal_of(value) is Some(text) {
         write_literal(out.buf, text, column + step)
       } else if value is String(s) {
-        write_folded(out.buf, s, column, style.width, start=column + 2)
+        write_folded(out.buf, s, column, style.width, rules~, start=column + 2)
       } else {
         write_scalar(out.buf, value, style, rules)
       }
@@ -813,7 +841,19 @@ pub fn dumps(
       }
     _ =>
       if value is String(s) {
-        write_folded(out.buf, s, 0, style.width)
+        // A document that is one scalar has no key or dash to hang a block
+        // scalar on, so it is written at the left margin — indented by one step,
+        // because a plain or literal line at column zero would end the document
+        // instead of continuing it.
+        match literal_of(value) {
+          Some(_) => write_literal(out.buf, s, style.indent)
+          None =>
+            if foldable(s, rules) {
+              write_folded(out.buf, s, style.indent, style.width, rules~)
+            } else {
+              write_text(out.buf, s, style, rules)
+            }
+        }
       } else {
         write_scalar(out.buf, value, style, rules)
       }
