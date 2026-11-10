@@ -625,7 +625,11 @@ fn block(out : Out, value : Json, column : Int32) -> Unit {
           out.buf.write_char(' ')
           // A scalar that will not fit on the key's line is folded, which is the
           // one line break a plain scalar reads back as the space it replaced.
+          // Only a scalar that is plain can be folded: one that has to be quoted
+          // is quoted, however long the line it makes, because a fold is a
+          // change of line breaks and not of quoting.
           if held is String(text) &&
+            bare(text, rules) &&
             style.width > 0 &&
             column + name.length() + 2 + text.length() > style.width {
             write_folded(
@@ -694,7 +698,7 @@ fn block(out : Out, value : Json, column : Int32) -> Unit {
     _ =>
       if literal_of(value) is Some(text) {
         write_literal(out.buf, text, column + step)
-      } else if value is String(s) {
+      } else if value is String(s) && bare(s, rules) {
         write_folded(out.buf, s, column, style.width, rules~, start=column + 2)
       } else {
         write_scalar(out.buf, value, style, rules)

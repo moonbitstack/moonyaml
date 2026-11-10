@@ -206,3 +206,44 @@ test "a number wider than a double keeps the digits it was written with" {
   // A number a double holds exactly is written as its value, not as its text.
   assert_eq(dumps(loads("a: 8080\n"[:])), "a: 8080\n")
 }
+
+///|
+test "a long scalar the caller's rules resolve is quoted, not folded" {
+  // A hundred digits with separators in them is one number to 1.1 and a string to
+  // 1.2. Written for 1.1 it has to be quoted — and the fold that shortens a long
+  // line must not undo the quoting because the preset's rules would not ask for it.
+  let out = StringBuilder()
+  for _ in 0..<20 {
+    out.write_string("1_000")
+  }
+  let digits = out.to_string()
+  assert_eq(digits.length(), 100)
+  assert_eq(
+    dumps(Json::string(digits), rules=legacy_rules),
+    "\"" + digits + "\"\n",
+  )
+  // 1.2 gives an underscore no meaning, so the same text is plain there.
+  assert_eq(dumps(Json::string(digits)).has_prefix("\"1_000"), false)
+}
+
+///|
+test "a long string that has to be quoted is quoted, not written bare" {
+  // The fold is there to shorten a plain line; a scalar that is not plain is a
+  // quoted scalar on one long line, because folding it would change what it says.
+  let digits = StringBuilder()
+  for _ in 0..<4 {
+    digits.write_string("123456789012345678901234567890")
+  }
+  let number = digits.to_string()[0:100].to_owned()
+  assert_eq(dumps({ "a": Json::string(number) }), "a: \"" + number + "\"\n")
+  // And the same under 1.1's rules, where the separators are digits too.
+  let separated = StringBuilder()
+  for _ in 0..<20 {
+    separated.write_string("1_000")
+  }
+  let long = separated.to_string()
+  assert_eq(
+    dumps({ "a": Json::string(long) }, rules=legacy_rules),
+    "a: \"" + long + "\"\n",
+  )
+}
