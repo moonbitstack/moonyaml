@@ -156,34 +156,32 @@ def check_lane(YAML, version, cases, work: Path) -> list[str]:
     wrong: list[str] = []
     read = 0
     round_tripped = 0
-    reader_ = reader(YAML, version)
-    writer_ = writer(YAML, version)
+    partner_reads = reader(YAML, version)
+    partner_writes = writer(YAML, version)
 
+    # Leg one: this library wrote each document, the partner reads it back.
     for case in applied:
         cid, want = case["id"], case["value"]
-
-        # This library wrote it; the other implementation reads it back.
         document = (ours / f"{cid}.yaml").read_text(encoding="utf-8")
         try:
-            got = reader_.load(document)
+            got = partner_reads.load(document)
         except Exception as fault:  # the partner's refusal, reported as a line
             wrong.append(f"{lane} {cid}: the other implementation refused {describe(document)}: {fault}")
+            continue
+        if same(got, want):
+            read += 1
         else:
-            if same(got, want):
-                read += 1
-            else:
-                wrong.append(
-                    f"{lane} {cid}: wrote {describe(document)}, read there as {describe(got)},"
-                    f" wanted {describe(want)}"
-                )
+            wrong.append(
+                f"{lane} {cid}: wrote {describe(document)}, read there as {describe(got)},"
+                f" wanted {describe(want)}"
+            )
 
-        # The other implementation writes it; this library reads it back.
+    # Leg two: the partner writes each value, and this library reads it back. It
+    # reads the whole directory in one process rather than one per document.
+    for case in applied:
         stream = io.StringIO()
-        writer_.dump(want, stream)
-        (theirs / f"{cid}.yaml").write_text(stream.getvalue(), encoding="utf-8")
-
-    # Reading happens once, over the directory the partner filled, so the whole
-    # leg is one process rather than one per document.
+        partner_writes.dump(case["value"], stream)
+        (theirs / f"{case['id']}.yaml").write_text(stream.getvalue(), encoding="utf-8")
     exchange("read", str(theirs), str(report), lane)
     read_here = json.loads(report.read_text(encoding="utf-8"))
     values = read_here.get("values", {})
