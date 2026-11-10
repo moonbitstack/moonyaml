@@ -347,3 +347,59 @@ test "every refusal says where, without the caller matching all of them" {
     assert_eq(at.column >= 1, true)
   }
 }
+
+///|
+test "a whole number wider than a double keeps the digits it was written as" {
+  // An identifier of twenty digits is a value this reader has to give back as it
+  // was written; the tree holds a double, so the text is kept beside it.
+  assert_eq(
+    loads("12345678901234567890"[:]).stringify(),
+    "12345678901234567890",
+  )
+  assert_eq(
+    loads("-12345678901234567890"[:]).stringify(),
+    "-12345678901234567890",
+  )
+  assert_eq(loads("9223372036854775807"[:]).stringify(), "9223372036854775807")
+  // Sixteen digits can be exact, and then there is no text to keep.
+  assert_eq(loads("9007199254740992"[:]).stringify(), "9007199254740992")
+  assert_eq(loads("8080"[:]).stringify(), "8080")
+}
+
+///|
+test "a number with an exponent is the double it names" {
+  // Accumulating a mantissa and a power of ten in a loop drifts: `1e30` has to be
+  // the nearest double to 10^30, which is what the digits and the exponent say.
+  assert_eq(loads("1e30"[:]).stringify(), "1e+30")
+  assert_eq(loads("-1e30"[:]).stringify(), "-1e+30")
+  assert_eq(loads("1e-7"[:]).stringify(), "1e-7")
+  assert_eq(
+    loads("1.7976931348623157e308"[:]).stringify(),
+    "1.7976931348623157e+308",
+  )
+  assert_eq(loads("5e-324"[:]).stringify(), "5e-324")
+  assert_eq(loads("0.1"[:]).stringify(), "0.1")
+  assert_eq(loads("3.141592653589793"[:]).stringify(), "3.141592653589793")
+}
+
+///|
+test "the escapes for the characters some scanners treat as breaks" {
+  // §5.7 names all three; a reader that folds them into a space would change the
+  // value, so a writer has to be able to spell them and a reader to read them.
+  assert_eq(
+    loads("\"a\\Nb\""[:]).stringify(),
+    Json::string("a\u{85}b").stringify(),
+  )
+  assert_eq(
+    loads("\"a\\Lb\""[:]).stringify(),
+    Json::string("a\u{2028}b").stringify(),
+  )
+  assert_eq(
+    loads("\"a\\Pb\""[:]).stringify(),
+    Json::string("a\u{2029}b").stringify(),
+  )
+  assert_eq(
+    loads("\"a\\x9fb\""[:]).stringify(),
+    Json::string("a\u{9f}b").stringify(),
+  )
+}

@@ -2374,9 +2374,55 @@ fn untagged(text : String, rules : Rules) -> Json {
     }
   }
   match number(text, rules) {
-    Some(n) => Json::number(n)
+    Some(n) => Json::number(n, repr?=kept(text, rules, n))
     None => Json::string(text)
   }
+}
+
+///|
+/// The text a whole number too wide for a double keeps, so that it is written back
+/// as the digits it was written as.
+///
+/// `Json` holds a double, and a double cannot tell 12345678901234567890 from the
+/// 12345678901234567000 it rounds to. An identifier that long is common in the
+/// files this reads — a snowflake, a database key — so the text is kept beside the
+/// value, and `dumps` writes it. Only a decimal literal gets this: another radix
+/// would be written back in the spelling of one version and read by another as
+/// something else.
+fn kept(text : String, rules : Rules, n : Double) -> String? {
+  if n != n.floor() {
+    return None
+  }
+  let digits = if rules.underscores { strip_underscores(text) } else { text }
+  let mut i = 0
+  let mut sign = ""
+  if digits.length() > 0 &&
+    (digits[0].to_int() == 0x2d || digits[0].to_int() == 0x2b) {
+    sign = if digits[0].to_int() == 0x2d { "-" } else { "" }
+    i = 1
+  }
+  if i >= digits.length() {
+    return None
+  }
+  let mut begin = i
+  while i < digits.length() {
+    let c = digits[i].to_int()
+    if c < 0x30 || c > 0x39 {
+      return None
+    }
+    if begin == i && c == 0x30 && i + 1 < digits.length() {
+      begin = i + 1
+    }
+    i = i + 1
+  }
+  // Every whole number of sixteen digits or more may be wider than the 2^53 a
+  // double holds exactly, and checking that against the double cannot work: the
+  // double is the rounded value, and the rounded value is the one that looks fine.
+  let canonical = digits[begin:].to_owned()
+  if canonical.length() < 16 {
+    return None
+  }
+  Some(sign + canonical)
 }
 
 ///|
@@ -2493,65 +2539,52 @@ fn number(s : String, rules : Rules) -> Double? {
       }
     }
   }
-  let mut whole = 0.0
+  // The grammar of §10.2.1.3: digits, an optional fraction, an optional exponent.
+  // The value is then the nearest double to the text, which is a conversion that
+  // has to be done exactly — multiplying a mantissa by ten in a loop accumulates
+  // an error, and `1e30` has to come back as the double `1e30` names.
   let mut digits = false
-  while i < text.length() &&
-        text[i].to_int() >= 0x30 &&
-        text[i].to_int() <= 0x39 {
-    whole = whole * 10.0 + (text[i].to_int() - 0x30).to_double()
+  while i < text.length() && ascii_digit(text[i].to_int()) {
     digits = true
     i = i + 1
   }
-  let mut value = whole
   if i < text.length() && text[i].to_int() == 0x2e {
     i = i + 1
-    let mut frac = 0.0
-    let mut scale = 1.0
-    while i < text.length() &&
-          text[i].to_int() >= 0x30 &&
-          text[i].to_int() <= 0x39 {
-      frac = frac * 10.0 + (text[i].to_int() - 0x30).to_double()
-      scale = scale * 10.0
+    while i < text.length() && ascii_digit(text[i].to_int()) {
       digits = true
       i = i + 1
     }
-    value = value + frac / scale
   }
   if !digits {
     return None
   }
   if i < text.length() && (text[i].to_int() == 0x65 || text[i].to_int() == 0x45) {
     i = i + 1
-    let mut esign = 1
     if i < text.length() &&
       (text[i].to_int() == 0x2b || text[i].to_int() == 0x2d) {
-      if text[i].to_int() == 0x2d {
-        esign = -1
-      }
       i = i + 1
     }
-    let mut exp = 0
     let mut any = false
-    while i < text.length() &&
-          text[i].to_int() >= 0x30 &&
-          text[i].to_int() <= 0x39 {
-      exp = exp * 10 + (text[i].to_int() - 0x30)
+    while i < text.length() && ascii_digit(text[i].to_int()) {
       any = true
       i = i + 1
     }
     if !any {
       return None
     }
-    let mut factor = 1.0
-    for k = 0; k < exp; k = k + 1 {
-      factor = factor * 10.0
-    }
-    value = if esign < 0 { value / factor } else { value * factor }
   }
   if i != text.length() {
     return None
   }
-  Some(sign * value)
+  Some(@string.parse_double(text)) catch {
+    _ => None
+  }
+}
+
+///|
+/// Whether a code point is `0` to `9`.
+fn ascii_digit(c : Int32) -> Bool {
+  c >= 0x30 && c <= 0x39
 }
 
 ///|
