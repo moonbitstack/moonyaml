@@ -106,7 +106,11 @@ def same(one, other) -> bool:
 
 
 def describe(value) -> str:
-    text = json.dumps(value, ensure_ascii=False)
+    """A value as one line of a report — a date or a set is not JSON, and is said as it is."""
+    try:
+        text = json.dumps(value, ensure_ascii=False)
+    except TypeError:
+        text = repr(value)
     return text if len(text) <= 120 else text[:117] + "..."
 
 
