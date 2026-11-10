@@ -64,6 +64,20 @@ jobs:
         run: |
           moon fmt && git diff --exit-code
 
+      # The suite is not vendored; the data file is made from one pinned
+      # revision of it. Regenerating from that revision has to give the file in
+      # the repository, or the numbers the tests print are about another state
+      # of the suite than the one they name.
+      - name: the suite data matches the pinned revision
+        if: runner.os == 'Linux'
+        run: |
+          python3 -m pip install --quiet pyyaml
+          sha="$(python3 -c 'import sys; sys.path.insert(0, "scripts"); import gen_suite; print(gen_suite.SUITE_COMMIT)')"
+          mkdir -p "$RUNNER_TEMP/suite"
+          curl -fsSL "https://codeload.github.com/yaml/yaml-test-suite/tar.gz/$sha" \
+            | tar -xz -C "$RUNNER_TEMP/suite" --strip-components=1
+          python3 scripts/gen_suite.py --check "$RUNNER_TEMP/suite"
+
       - name: interfaces are up to date
         run: |
           moon info --target all && git diff --exit-code
@@ -82,3 +96,4 @@ jobs:
       - name: the code in the docs compiles
         if: runner.os == 'Linux'
         run: python3 scripts/check_snippets.py
+
