@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Bidirectional interop with another YAML implementation.
+"""Bidirectional interop with two other YAML implementations.
 
-The same corpus goes through both implementations in both directions:
+The same corpus goes through every implementation in both directions:
 
 * this library writes every case, the other implementation reads the document
   back, and the value is compared with the one the corpus names;
@@ -9,32 +9,43 @@ The same corpus goes through both implementations in both directions:
   the value is compared with the same one.
 
 So a disagreement is always a disagreement between two readers over the same
-text, never between a reader and its own writer. Both directions run under
-YAML 1.2 and again under 1.1, because a version is a schema over one scanner
-and the two schemas differ in what a bare scalar means.
+text, never between a reader and its own writer. Everything runs under YAML 1.2
+and again under 1.1, which is the pair of schemas the implementations in reach
+have; a version is a schema over one scanner, and the two differ in what a bare
+scalar means.
 
-The other implementation is ruamel.yaml, and the reasons are:
+The two partners, and why these two:
 
-* it resolves scalars under the same schema as the root package here — 1.2's
-  core schema, where `yes` is a string and `0x1f` a number — so a disagreement
-  is about reading, not about which version a partner happens to implement;
-* it can be told to resolve under 1.1 as well, so one dependency covers both
-  lanes, including the 1.1 package whose rules are hardest to check;
-* it both reads and writes, which is what "in both directions" needs; a
-  parser-only partner would leave the writer unmeasured;
-* it is pure Python and pins to an exact version, so the check is the same on
-  every machine and needs no build step.
+* **ruamel.yaml** — a full 1.2 implementation, and a round-trip one, so it both
+  reads what this library writes and writes documents this library has to read.
+  Its 1.2 resolver is the closest thing in reach to the core schema the root
+  package implements, which makes a disagreement about reading rather than about
+  which release a partner happens to implement. It can be told to resolve under
+  1.1 as well, so it covers both lanes.
+* **libyaml** — the C implementation the rest of the world is built on: PyYAML's
+  C loader, Ruby's Psych and a good part of the Go and Rust ecosystem scan with
+  it. Its scanner, parser and emitter are what runs here; the resolver on top is
+  PyYAML's 1.1 one, which is what every libyaml user gets. It has no 1.2 mode —
+  its resolver is 1.1's — so it is the second opinion on the 1.1 lane, and
+  ruamel is the one on the 1.2 lane.
 
-Its 1.2 resolver is wider than the core schema in three places, and the corpus
-says so where it matters: `1_000` and `0b1010` are numbers to it and strings to
-the core schema, so those cases are exchanged under 1.1 only, where both sides
-agree; a timestamp-shaped scalar is left out of the corpus altogether, since
-this library has no timestamp type to hand back and the divergence is written
-down in the README instead.
+Two readings are declared in the corpus rather than compared, because the
+implementations in reach genuinely differ on them and saying so is the honest
+form of the test:
+
+* a lone `y`, `Y`, `n` or `N` under 1.1: YAML 1.1's type repository lists the
+  four as booleans, ruamel reads them that way, and PyYAML — and so everything
+  driven by libyaml — reads them as strings, which is what this library does.
+  The case says `contested`, and the check requires that the declared partner
+  really does disagree, so the claim cannot quietly stop being true.
+
+A scalar shaped like a timestamp is left out of the corpus: this library has no
+timestamp type to hand back, both partners resolve one to a date, and the
+divergence is written down in the README instead.
 
     python scripts/check_interop.py [--keep]
 
-Needs `moon` and `ruamel.yaml==0.19.1` (see scripts/interop-requirements.txt).
+Needs `moon` and the packages in scripts/interop-requirements.txt.
 """
 
 from __future__ import annotations
@@ -42,48 +53,87 @@ from __future__ import annotations
 import argparse
 import io
 import json
-import warnings
 import shutil
 import subprocess
 import sys
 import tempfile
+import warnings
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 CORPUS = ROOT / "integration" / "interop" / "corpus.json"
 EXCHANGE = ROOT / "integration" / "interop"
 
-LANES = {"1.2": (1, 2), "1.1": (1, 1)}
+VERSIONS = {"1.2": (1, 2), "1.1": (1, 1)}
 
 
-def load_ruamel():
-    try:
+class Ruamel:
+    """ruamel.yaml: 1.2 and 1.1, reading and writing."""
+
+    name = "ruamel.yaml"
+    tag = "ruamel"
+    lanes = ("1.2", "1.1")
+
+    def __init__(self):
         from ruamel.yaml import YAML
         from ruamel.yaml.error import MantissaNoDotYAML1_1Warning
 
         # 1.1 wants a dot in a float's mantissa and 1.2 does not; this library
         # writes the shortest form, and the partner reads it as the same float.
         warnings.simplefilter("ignore", MantissaNoDotYAML1_1Warning)
-    except ModuleNotFoundError:
-        sys.exit(
-            "ruamel.yaml is not installed; "
-            "pip install -r scripts/interop-requirements.txt"
+        self.YAML = YAML
+
+    def _yaml(self, lane, dumping=False):
+        yaml = self.YAML(typ="safe")
+        yaml.version = VERSIONS[lane]
+        if dumping:
+            yaml.default_flow_style = False
+            yaml.width = 80
+        return yaml
+
+    def read(self, text, lane):
+        return self._yaml(lane).load(text)
+
+    def write(self, value, lane):
+        stream = io.StringIO()
+        self._yaml(lane, dumping=True).dump(value, stream)
+        return stream.getvalue()
+
+
+class Libyaml:
+    """libyaml, as PyYAML drives it: 1.1 only, because that is its resolver."""
+
+    name = "libyaml"
+    tag = "libyaml"
+    lanes = ("1.1",)
+
+    def __init__(self):
+        import yaml
+
+        if not getattr(yaml, "__with_libyaml__", False):
+            sys.exit(
+                "PyYAML was built without libyaml, so what would be measured is"
+                " PyYAML's own scanner and not the C implementation; install"
+                " libyaml-dev and reinstall PyYAML, or use a wheel that carries it"
+            )
+        self.yaml = yaml
+
+    def read(self, text, lane):
+        return self.yaml.load(text, Loader=self.yaml.CSafeLoader)
+
+    def write(self, value, lane):
+        return self.yaml.dump(
+            value,
+            Dumper=self.yaml.CSafeDumper,
+            default_flow_style=False,
+            allow_unicode=True,
+            sort_keys=False,
+            width=80,
         )
-    return YAML
 
 
-def reader(YAML, version):
-    yaml = YAML(typ="safe")
-    yaml.version = version
-    return yaml
-
-
-def writer(YAML, version):
-    yaml = YAML(typ="safe")
-    yaml.version = version
-    yaml.default_flow_style = False
-    yaml.width = 80
-    return yaml
+def partners() -> list:
+    return [Ruamel(), Libyaml()]
 
 
 def same(one, other) -> bool:
@@ -134,76 +184,95 @@ def exchange(*arguments: str) -> None:
 
 
 def case_lanes(case) -> list[str]:
-    return case.get("lanes") or list(LANES)
+    return case.get("lanes") or list(VERSIONS)
 
 
-def lane_name(version) -> str:
-    return f"{version[0]}.{version[1]}"
+def contested(case, lane) -> list[str]:
+    """The partners the corpus says read this case differently, on purpose."""
+    return (case.get("contested") or {}).get(lane, [])
 
 
-def check_lane(YAML, version, cases, work: Path) -> list[str]:
-    """Both legs of one version, and every disagreement as a line of text."""
-    lane = lane_name(version)
-    ours = work / f"ours-{lane}"
-    theirs = work / f"theirs-{lane}"
+def check_lane(partner, lane, cases, work: Path) -> list[str]:
+    """Both legs of one implementation under one version, and every disagreement."""
+    ours = work / f"ours-{partner.tag}-{lane}"
+    theirs = work / f"theirs-{partner.tag}-{lane}"
     ours.mkdir()
     theirs.mkdir()
-    report = work / f"read-{lane}.json"
+    report = work / f"read-{partner.tag}-{lane}.json"
     applied = [c for c in cases if lane in case_lanes(c)]
 
     exchange("write", str(CORPUS), str(ours), lane)
 
     wrong: list[str] = []
+    agreed_there: set[str] = set()
+    agreed_here: set[str] = set()
     read = 0
     round_tripped = 0
-    partner_reads = reader(YAML, version)
-    partner_writes = writer(YAML, version)
+    declared = 0
 
     # Leg one: this library wrote each document, the partner reads it back.
     for case in applied:
         cid, want = case["id"], case["value"]
         document = (ours / f"{cid}.yaml").read_text(encoding="utf-8")
         try:
-            got = partner_reads.load(document)
-        except Exception as fault:  # the partner's refusal, reported as a line
-            wrong.append(f"{lane} {cid}: the other implementation refused {describe(document)}: {fault}")
-            continue
-        if same(got, want):
+            got, fault = partner.read(document, lane), None
+        except Exception as failure:  # the partner's refusal, as a line of the report
+            got, fault = None, failure
+        if fault is None and same(got, want):
             read += 1
+            agreed_there.add(cid)
+        elif partner.name in contested(case, lane):
+            declared += 1
+        elif fault is not None:
+            wrong.append(
+                f"{partner.name} {lane} {cid}: refused {describe(document)}: {fault}"
+            )
         else:
             wrong.append(
-                f"{lane} {cid}: wrote {describe(document)}, read there as {describe(got)},"
-                f" wanted {describe(want)}"
+                f"{partner.name} {lane} {cid}: wrote {describe(document)},"
+                f" read there as {describe(got)}, wanted {describe(want)}"
             )
 
     # Leg two: the partner writes each value, and this library reads it back. It
     # reads the whole directory in one process rather than one per document.
     for case in applied:
-        stream = io.StringIO()
-        partner_writes.dump(case["value"], stream)
-        (theirs / f"{case['id']}.yaml").write_text(stream.getvalue(), encoding="utf-8")
+        stream = partner.write(case["value"], lane)
+        (theirs / f"{case['id']}.yaml").write_text(stream, encoding="utf-8")
     exchange("read", str(theirs), str(report), lane)
     read_here = json.loads(report.read_text(encoding="utf-8"))
     values = read_here.get("values", {})
     refused = read_here.get("errors", {})
     for case in applied:
         cid, want = case["id"], case["value"]
-        if cid in refused:
-            wrong.append(f"{lane} {cid}: refused {refused[cid]}")
-        elif cid not in values:
-            wrong.append(f"{lane} {cid}: no document read")
-        elif same(values[cid], want):
+        if cid in values and same(values[cid], want):
             round_tripped += 1
+            agreed_here.add(cid)
+        elif partner.name in contested(case, lane):
+            declared += 1
+        elif cid in refused:
+            wrong.append(f"{partner.name} {lane} {cid}: refused {refused[cid]}")
+        elif cid not in values:
+            wrong.append(f"{partner.name} {lane} {cid}: no document read")
         else:
             wrong.append(
-                f"{lane} {cid}: the other implementation wrote"
+                f"{partner.name} {lane} {cid}: the other implementation wrote"
                 f" {describe((theirs / f'{cid}.yaml').read_text(encoding='utf-8'))},"
                 f" read here as {describe(values[cid])}, wanted {describe(want)}"
             )
 
+    # A case the corpus declares contested has to stay contested: if a partner
+    # starts agreeing on both legs, the declaration is stale.
+    for case in applied:
+        cid = case["id"]
+        if partner.name in contested(case, lane) and cid in agreed_there and cid in agreed_here:
+            wrong.append(
+                f"{partner.name} {lane} {cid}: declared contested, but both legs agreed"
+            )
+
     print(
-        f"interop {lane}: {len(applied)} documents — {read} written here and read there,"
-        f" {round_tripped} written there and read here, {len(wrong)} disagreed"
+        f"interop {partner.name} {lane}: {len(applied)} documents —"
+        f" {read} written here and read there, {round_tripped} written there and read here,"
+        f" {declared} declared different, {len(wrong)} disagreed"
     )
     return wrong
 
@@ -213,20 +282,20 @@ def main() -> int:
     parser.add_argument("--keep", action="store_true", help="leave the exchanged documents in place")
     options = parser.parse_args()
 
-    YAML = load_ruamel()
     sync_workspace()
     cases = json.loads(CORPUS.read_text(encoding="utf-8"))
     work = Path(tempfile.mkdtemp(prefix="moonyaml-interop-"))
     try:
         wrong: list[str] = []
-        for version in LANES.values():
-            wrong.extend(check_lane(YAML, version, cases, work))
+        for partner in partners():
+            for lane in partner.lanes:
+                wrong.extend(check_lane(partner, lane, cases, work))
         for line in wrong:
             print("  " + line)
         if wrong:
             print(f"{len(wrong)} disagreements")
             return 1
-        print(f"interop: {len(cases)} cases agree in both directions, under YAML 1.2 and 1.1")
+        print(f"interop: {len(cases)} cases, two implementations, both directions")
         return 0
     finally:
         if options.keep:

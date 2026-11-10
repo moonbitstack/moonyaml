@@ -1,4 +1,9 @@
-# What scripts/check_interop.py needs, at the version the check was written
+# What scripts/check_interop.py needs, at the versions the check was written
 # against. Pins, because a check that measures a different implementation on
 # every machine measures nothing in particular.
+#
+# PyYAML has to be one that carries libyaml — its C loader is the scanner,
+# parser and emitter under test — so the check refuses to run on a build
+# without it rather than quietly measuring the Python one instead.
+PyYAML==6.0.3
 ruamel.yaml==0.19.1

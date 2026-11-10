@@ -106,16 +106,20 @@
   {
     "id": "string-y",
     "value": "y",
-    "lanes": [
-      "1.2"
-    ]
+    "contested": {
+      "1.1": [
+        "ruamel.yaml"
+      ]
+    }
   },
   {
     "id": "string-n",
     "value": "n",
-    "lanes": [
-      "1.2"
-    ]
+    "contested": {
+      "1.1": [
+        "ruamel.yaml"
+      ]
+    }
   },
   {
     "id": "string-word-true",
@@ -155,7 +159,12 @@
   },
   {
     "id": "string-exponent",
-    "value": "1e3"
+    "value": "1e3",
+    "contested": {
+      "1.1": [
+        "ruamel.yaml"
+      ]
+    }
   },
   {
     "id": "string-plus",
@@ -333,7 +342,12 @@
   },
   {
     "id": "string-line-separator",
-    "value": "a b"
+    "value": "a b",
+    "contested": {
+      "1.1": [
+        "libyaml"
+      ]
+    }
   },
   {
     "id": "string-bell",
@@ -969,6 +983,15 @@
     "id": "map-long-number",
     "value": {
       "id": "9999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999"
+    }
+  },
+  {
+    "id": "string-paragraph-separator",
+    "value": "a b",
+    "contested": {
+      "1.1": [
+        "libyaml"
+      ]
     }
   }
 ]
