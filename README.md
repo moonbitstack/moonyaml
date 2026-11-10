@@ -315,10 +315,11 @@ a document can be written back with it intact.
 
 ## Conformance
 
-The reader is checked against the YAML Test Suite — 402 cases, every one of them
-read as the JSON the suite says it denotes, refused where the suite says it must
-be, or held to the event stream it records — and the writer is checked by writing
-each of those documents back and reading it again as the same document.
+The reader is checked against the YAML Test Suite at a pinned revision — 402
+cases, every one of them read as the JSON the suite says it denotes, refused where
+the suite says it must be, or held to the event stream it records — and the writer
+by writing each of those documents back and reading it again as the same
+document.
 
 The reader and the writer are also checked against another implementation in both
 directions: a corpus of documents written here and read back there, and the same
