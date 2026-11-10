@@ -126,6 +126,7 @@ fn read_all(directory : String, report : String, lane : Lane) -> Unit {
 }
 
 ///|
+/// A document read under `lane`'s rules, or the refusal as a line of the report.
 fn load(text : String, lane : Lane) -> Result[Json, String] {
   match lane {
     V12 => Ok(@moonyaml.loads(text)) catch { e => Err(e.to_string()) }
@@ -134,6 +135,7 @@ fn load(text : String, lane : Lane) -> Result[Json, String] {
 }
 
 ///|
+/// A path in `directory`, with the separator the platform takes.
 fn join(directory : String, name : String) -> String {
   if directory.has_suffix("/") || directory.has_suffix("\\") {
     directory + name
@@ -143,6 +145,7 @@ fn join(directory : String, name : String) -> String {
 }
 
 ///|
+/// A file, or a line saying which one could not be read.
 fn read_text(path : String) -> String {
   @fs.read_file_to_string(path) catch {
     @fs.IOError(why) => {
@@ -153,6 +156,7 @@ fn read_text(path : String) -> String {
 }
 
 ///|
+/// Write a file, or say which one could not be written.
 fn write_text(path : String, text : String) -> Unit {
   @fs.write_string_to_file(path, text) catch {
     @fs.IOError(why) => {
@@ -163,6 +167,7 @@ fn write_text(path : String, text : String) -> Unit {
 }
 
 ///|
+/// The names in a directory, sorted so that two runs report the same order.
 fn list_dir(path : String) -> Array[String] {
   let names = @fs.read_dir(path) catch {
     @fs.IOError(why) => {
@@ -176,9 +181,9 @@ fn list_dir(path : String) -> Array[String] {
 }
 
 ///|
-/// The corpus, read with the text of every number kept: a value wider than a
-/// double has to survive being written, and a reader that only kept the double
-/// would report a disagreement that is this program's fault.
+/// JSON as this program reads it, with the text of every number kept: a value
+/// wider than a double has to survive being written, and a reader that kept only
+/// the double would report a disagreement that is its own fault.
 fn parse_json(text : String, what : String) -> Json {
   @json.parse(text, preserve_number_repr=true) catch {
     e => {
