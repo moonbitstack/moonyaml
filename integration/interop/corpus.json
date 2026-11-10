@@ -1,0 +1,961 @@
+[
+  {
+    "id": "scalar-null",
+    "value": null
+  },
+  {
+    "id": "scalar-true",
+    "value": true
+  },
+  {
+    "id": "scalar-false",
+    "value": false
+  },
+  {
+    "id": "scalar-zero",
+    "value": 0
+  },
+  {
+    "id": "scalar-one",
+    "value": 1
+  },
+  {
+    "id": "scalar-negative",
+    "value": -17
+  },
+  {
+    "id": "scalar-thousand",
+    "value": 1000
+  },
+  {
+    "id": "scalar-2pow31",
+    "value": 2147483648
+  },
+  {
+    "id": "scalar-2pow53-minus-one",
+    "value": 9007199254740991
+  },
+  {
+    "id": "scalar-2pow53-plus-one",
+    "value": 9007199254740993
+  },
+  {
+    "id": "scalar-huge-integer",
+    "value": 12345678901234567890
+  },
+  {
+    "id": "scalar-half",
+    "value": 1.5
+  },
+  {
+    "id": "scalar-negative-fraction",
+    "value": -0.25
+  },
+  {
+    "id": "scalar-tenth",
+    "value": 0.1
+  },
+  {
+    "id": "scalar-small",
+    "value": 1e-07
+  },
+  {
+    "id": "scalar-large",
+    "value": 1e+30
+  },
+  {
+    "id": "scalar-third",
+    "value": 0.30000000000000004
+  },
+  {
+    "id": "scalar-whole-float",
+    "value": 1.0
+  },
+  {
+    "id": "scalar-negative-zero",
+    "value": -0.0
+  },
+  {
+    "id": "string-empty",
+    "value": ""
+  },
+  {
+    "id": "string-space",
+    "value": " "
+  },
+  {
+    "id": "string-padded",
+    "value": "  padded  "
+  },
+  {
+    "id": "string-yes",
+    "value": "yes"
+  },
+  {
+    "id": "string-no",
+    "value": "no"
+  },
+  {
+    "id": "string-on",
+    "value": "on"
+  },
+  {
+    "id": "string-off",
+    "value": "off"
+  },
+  {
+    "id": "string-y",
+    "value": "y",
+    "lanes": [
+      "1.2"
+    ]
+  },
+  {
+    "id": "string-n",
+    "value": "n",
+    "lanes": [
+      "1.2"
+    ]
+  },
+  {
+    "id": "string-word-true",
+    "value": "true"
+  },
+  {
+    "id": "string-title-true",
+    "value": "True"
+  },
+  {
+    "id": "string-caps-null",
+    "value": "NULL"
+  },
+  {
+    "id": "string-word-null",
+    "value": "null"
+  },
+  {
+    "id": "string-tilde",
+    "value": "~"
+  },
+  {
+    "id": "string-zero-padded",
+    "value": "0123"
+  },
+  {
+    "id": "string-octal-1-2",
+    "value": "0o14"
+  },
+  {
+    "id": "string-hexadecimal",
+    "value": "0x1f"
+  },
+  {
+    "id": "string-float-look",
+    "value": "1.5"
+  },
+  {
+    "id": "string-exponent",
+    "value": "1e3"
+  },
+  {
+    "id": "string-plus",
+    "value": "+1"
+  },
+  {
+    "id": "string-minus-zero",
+    "value": "-0"
+  },
+  {
+    "id": "string-underscored",
+    "value": "1_000",
+    "lanes": [
+      "1.1"
+    ]
+  },
+  {
+    "id": "string-binary",
+    "value": "0b1010",
+    "lanes": [
+      "1.1"
+    ]
+  },
+  {
+    "id": "string-sexagesimal",
+    "value": "1:30"
+  },
+  {
+    "id": "string-time",
+    "value": "12:34:56"
+  },
+  {
+    "id": "string-colon-space",
+    "value": "a: b"
+  },
+  {
+    "id": "string-colon-end",
+    "value": "a:"
+  },
+  {
+    "id": "string-hash-space",
+    "value": "a #b"
+  },
+  {
+    "id": "string-hash-first",
+    "value": "#lead"
+  },
+  {
+    "id": "string-dash-first",
+    "value": "-dash"
+  },
+  {
+    "id": "string-question-first",
+    "value": "? q"
+  },
+  {
+    "id": "string-bracket-first",
+    "value": "[a]"
+  },
+  {
+    "id": "string-brace-first",
+    "value": "{a: 1}"
+  },
+  {
+    "id": "string-star-first",
+    "value": "*star"
+  },
+  {
+    "id": "string-ampersand-first",
+    "value": "&anchor"
+  },
+  {
+    "id": "string-bang-first",
+    "value": "!tag"
+  },
+  {
+    "id": "string-pipe-first",
+    "value": "|literal"
+  },
+  {
+    "id": "string-gt-first",
+    "value": ">folded"
+  },
+  {
+    "id": "string-single-quotes",
+    "value": "'quoted'"
+  },
+  {
+    "id": "string-double-quotes",
+    "value": "\"quoted\""
+  },
+  {
+    "id": "string-backslashes",
+    "value": "C:\\path\\to\\file"
+  },
+  {
+    "id": "string-percent-first",
+    "value": "%YAML"
+  },
+  {
+    "id": "string-at-first",
+    "value": "@at"
+  },
+  {
+    "id": "string-backtick-first",
+    "value": "`tick"
+  },
+  {
+    "id": "string-comma",
+    "value": "a, b"
+  },
+  {
+    "id": "string-dots",
+    "value": "..."
+  },
+  {
+    "id": "string-dashes",
+    "value": "---"
+  },
+  {
+    "id": "string-dots-then-text",
+    "value": "...x"
+  },
+  {
+    "id": "string-tab",
+    "value": "a\tb"
+  },
+  {
+    "id": "string-tab-first",
+    "value": "\tx"
+  },
+  {
+    "id": "string-newline",
+    "value": "a\nb"
+  },
+  {
+    "id": "string-newline-end",
+    "value": "a\n"
+  },
+  {
+    "id": "string-blank-line",
+    "value": "a\n\nb"
+  },
+  {
+    "id": "string-newline-first",
+    "value": "\na"
+  },
+  {
+    "id": "string-crlf",
+    "value": "a\r\nb"
+  },
+  {
+    "id": "string-carriage-return",
+    "value": "a\rb"
+  },
+  {
+    "id": "string-unicode",
+    "value": "configuration 配置"
+  },
+  {
+    "id": "string-accents",
+    "value": "café naïve"
+  },
+  {
+    "id": "string-emoji",
+    "value": "⛰ summit"
+  },
+  {
+    "id": "string-nbsp-first",
+    "value": " x"
+  },
+  {
+    "id": "string-nel",
+    "value": "ab"
+  },
+  {
+    "id": "string-line-separator",
+    "value": "a b"
+  },
+  {
+    "id": "string-bell",
+    "value": "a\u0007b"
+  },
+  {
+    "id": "string-nul",
+    "value": "a\u0000b"
+  },
+  {
+    "id": "string-json-document",
+    "value": "{\"a\": 1}"
+  },
+  {
+    "id": "string-sentence",
+    "value": "The settings below are read at start-up and never again, which is why they are written on one line rather than spread over several."
+  },
+  {
+    "id": "string-double-space",
+    "value": "left  right  left  right  left  right  left  right  left  right  left  right  left  right"
+  },
+  {
+    "id": "string-unbreakable",
+    "value": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+  },
+  {
+    "id": "string-digits",
+    "value": "0123456789012345678901234567890123456789"
+  },
+  {
+    "id": "string-hash-only",
+    "value": "#"
+  },
+  {
+    "id": "string-dash-only",
+    "value": "-"
+  },
+  {
+    "id": "string-colon-only",
+    "value": ":"
+  },
+  {
+    "id": "string-question-only",
+    "value": "?"
+  },
+  {
+    "id": "string-blanks-only",
+    "value": " \t "
+  },
+  {
+    "id": "string-trailing-space",
+    "value": "trailing "
+  },
+  {
+    "id": "string-leading-space",
+    "value": " leading"
+  },
+  {
+    "id": "string-numeric-text",
+    "value": "12 "
+  },
+  {
+    "id": "string-backslash-end",
+    "value": "path\\"
+  },
+  {
+    "id": "map-empty",
+    "value": {}
+  },
+  {
+    "id": "seq-empty",
+    "value": []
+  },
+  {
+    "id": "map-one",
+    "value": {
+      "a": 1
+    }
+  },
+  {
+    "id": "seq-scalars",
+    "value": [
+      1,
+      2,
+      3
+    ]
+  },
+  {
+    "id": "map-nested",
+    "value": {
+      "server": {
+        "host": "0.0.0.0",
+        "port": 12000,
+        "limits": {
+          "files": 1000,
+          "bytes": 1048576
+        }
+      }
+    }
+  },
+  {
+    "id": "seq-of-maps",
+    "value": [
+      {
+        "name": "alpha",
+        "port": 80
+      },
+      {
+        "name": "beta",
+        "port": 443
+      }
+    ]
+  },
+  {
+    "id": "map-of-seqs",
+    "value": {
+      "ports": [
+        80,
+        443
+      ],
+      "hosts": [
+        "alpha",
+        "beta"
+      ]
+    }
+  },
+  {
+    "id": "map-many-keys",
+    "value": {
+      "key00": 0,
+      "key01": 1,
+      "key02": 2,
+      "key03": 3,
+      "key04": 4,
+      "key05": 5,
+      "key06": 6,
+      "key07": 7,
+      "key08": 8,
+      "key09": 9,
+      "key10": 10,
+      "key11": 11,
+      "key12": 12,
+      "key13": 13,
+      "key14": 14,
+      "key15": 15,
+      "key16": 16,
+      "key17": 17,
+      "key18": 18,
+      "key19": 19,
+      "key20": 20,
+      "key21": 21
+    }
+  },
+  {
+    "id": "seq-many-items",
+    "value": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20,
+      21,
+      22,
+      23,
+      24,
+      25,
+      26,
+      27,
+      28,
+      29
+    ]
+  },
+  {
+    "id": "nested-six-deep",
+    "value": {
+      "a": {
+        "b": {
+          "c": {
+            "d": {
+              "e": {
+                "f": "bottom"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  {
+    "id": "repeated-subtree",
+    "value": {
+      "limits": {
+        "files": 1000,
+        "bytes": 1048576
+      },
+      "defaults": {
+        "files": 1000,
+        "bytes": 1048576
+      }
+    }
+  },
+  {
+    "id": "repeated-subtree-thrice",
+    "value": {
+      "one": {
+        "files": 1000
+      },
+      "two": {
+        "files": 1000
+      },
+      "three": {
+        "files": 1000
+      }
+    }
+  },
+  {
+    "id": "map-special-keys",
+    "value": {
+      "yes": 1,
+      "0123": 2,
+      "a: b": 3,
+      "": 4,
+      "配置": 5,
+      "#x": 6,
+      "null": 7,
+      "a\nb": 8,
+      "...": 9
+    }
+  },
+  {
+    "id": "map-numeric-keys",
+    "value": {
+      "1": "one",
+      "2.5": "two and a half",
+      "-3": "minus three"
+    }
+  },
+  {
+    "id": "map-long-key",
+    "value": {
+      "a key long enough that the line it is written on runs past the width of a page": "value"
+    }
+  },
+  {
+    "id": "root-string",
+    "value": "hello"
+  },
+  {
+    "id": "root-integer",
+    "value": 42
+  },
+  {
+    "id": "root-float",
+    "value": 2.5
+  },
+  {
+    "id": "root-string-dots",
+    "value": "..."
+  },
+  {
+    "id": "seq-of-everything",
+    "value": [
+      null,
+      true,
+      false,
+      0,
+      "",
+      [],
+      {},
+      "text",
+      1.5
+    ]
+  },
+  {
+    "id": "map-mixed",
+    "value": {
+      "name": "web",
+      "enabled": true,
+      "workers": 4,
+      "ratio": 0.75,
+      "tags": [
+        "a",
+        "b"
+      ],
+      "nothing": null,
+      "nested": {
+        "flow": [
+          1,
+          2
+        ],
+        "empty": {}
+      }
+    }
+  },
+  {
+    "id": "map-strings-near-width",
+    "value": {
+      "s00": "yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+      "s01": "yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+      "s02": "yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+      "s03": "yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+      "s04": "yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+      "s05": "yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+      "s06": "yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+      "s07": "yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+      "s08": "yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+      "s09": "yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+      "s10": "yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+      "s11": "yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy"
+    }
+  },
+  {
+    "id": "seq-nested-seq",
+    "value": [
+      [
+        1,
+        2
+      ],
+      [
+        3,
+        [
+          4,
+          5
+        ]
+      ],
+      [
+        [
+          6
+        ]
+      ]
+    ]
+  },
+  {
+    "id": "map-key-newline",
+    "value": {
+      "multi\nline key": "value"
+    }
+  },
+  {
+    "id": "string-control-01",
+    "value": "a\u0001b"
+  },
+  {
+    "id": "string-control-9f",
+    "value": "ab"
+  },
+  {
+    "id": "string-nbsp-inside",
+    "value": "a b"
+  },
+  {
+    "id": "string-nbsp-between",
+    "value": "a   b"
+  },
+  {
+    "id": "string-bracket-only",
+    "value": "["
+  },
+  {
+    "id": "string-brace-only",
+    "value": "{"
+  },
+  {
+    "id": "string-close-bracket",
+    "value": "]"
+  },
+  {
+    "id": "string-close-brace",
+    "value": "}"
+  },
+  {
+    "id": "string-comma-only",
+    "value": ","
+  },
+  {
+    "id": "string-bang-only",
+    "value": "!"
+  },
+  {
+    "id": "string-ampersand-only",
+    "value": "&"
+  },
+  {
+    "id": "string-star-only",
+    "value": "*"
+  },
+  {
+    "id": "string-at-only",
+    "value": "@"
+  },
+  {
+    "id": "string-backtick-only",
+    "value": "`"
+  },
+  {
+    "id": "string-pipe-only",
+    "value": "|"
+  },
+  {
+    "id": "string-gt-only",
+    "value": ">"
+  },
+  {
+    "id": "string-percent-only",
+    "value": "%"
+  },
+  {
+    "id": "string-dquote-only",
+    "value": "\""
+  },
+  {
+    "id": "string-squote-only",
+    "value": "'"
+  },
+  {
+    "id": "string-backslash-only",
+    "value": "\\"
+  },
+  {
+    "id": "string-colon-space-first",
+    "value": ": x"
+  },
+  {
+    "id": "string-question-nospace",
+    "value": "?x"
+  },
+  {
+    "id": "string-dash-nodash",
+    "value": "-x"
+  },
+  {
+    "id": "string-colon-end-word",
+    "value": "x:"
+  },
+  {
+    "id": "string-colon-inside-word",
+    "value": "x:y"
+  },
+  {
+    "id": "string-hash-nospace",
+    "value": "x#y"
+  },
+  {
+    "id": "string-two-tabs",
+    "value": "a\t\tb"
+  },
+  {
+    "id": "string-newline-tab",
+    "value": "a\n\tb"
+  },
+  {
+    "id": "string-crlf-end",
+    "value": "a\r\n"
+  },
+  {
+    "id": "string-three-lines",
+    "value": "a\nb\nc\n"
+  },
+  {
+    "id": "string-lines-trailing-blank",
+    "value": "a\nb\n\n"
+  },
+  {
+    "id": "string-lines-leading-blank",
+    "value": "\n\na"
+  },
+  {
+    "id": "string-space-line",
+    "value": "a\n \nb"
+  },
+  {
+    "id": "string-long-sentence",
+    "value": "Every value below is written by one implementation and read by the other, so a difference in how a line is folded shows up as a different string."
+  },
+  {
+    "id": "string-long-words",
+    "value": "antidisestablishmentarianism antidisestablishmentarianism antidisestablishmentarianism antidisestablishmentarianism antidisestablishmentarianism antidisestablishmentarianism"
+  },
+  {
+    "id": "string-long-with-colon",
+    "value": "The rule is simple: a plain scalar may hold a colon, as long as nothing follows it but more text, which is what this line is for."
+  },
+  {
+    "id": "string-mixed-scripts",
+    "value": "配置 café ⛰ مرحبا 👨‍👩‍👧 é"
+  },
+  {
+    "id": "scalar-2pow53-exact",
+    "value": 9007199254740992
+  },
+  {
+    "id": "scalar-big-negative",
+    "value": -12345678901234567890
+  },
+  {
+    "id": "scalar-nineteen-digits",
+    "value": 1000000000000000000
+  },
+  {
+    "id": "scalar-int64-max",
+    "value": 9223372036854775807
+  },
+  {
+    "id": "scalar-one-third",
+    "value": 0.3333333333333333
+  },
+  {
+    "id": "scalar-pi",
+    "value": 3.141592653589793
+  },
+  {
+    "id": "scalar-smallest",
+    "value": 5e-324
+  },
+  {
+    "id": "scalar-largest",
+    "value": 1.7976931348623157e+308
+  },
+  {
+    "id": "scalar-tiny",
+    "value": 1e-308
+  },
+  {
+    "id": "scalar-half-leading-dot",
+    "value": 0.5
+  },
+  {
+    "id": "seq-repeated-map",
+    "value": [
+      {
+        "files": 1000,
+        "bytes": 1048576
+      },
+      {
+        "files": 1000,
+        "bytes": 1048576
+      }
+    ]
+  },
+  {
+    "id": "map-nulls",
+    "value": {
+      "a": null,
+      "b": null
+    }
+  },
+  {
+    "id": "map-hash-keys",
+    "value": {
+      "#a": 1,
+      "a #b": 2
+    }
+  },
+  {
+    "id": "seq-of-long-strings",
+    "value": [
+      "Every value below is written by one implementation and read by the other, so a difference in how a line is folded shows up as a different string.",
+      "antidisestablishmentarianism antidisestablishmentarianism antidisestablishmentarianism antidisestablishmentarianism antidisestablishmentarianism antidisestablishmentarianism",
+      "The rule is simple: a plain scalar may hold a colon, as long as nothing follows it but more text, which is what this line is for."
+    ]
+  },
+  {
+    "id": "map-folded-values",
+    "value": {
+      "k0": "Every value below is written by one implementation and read by the other, so a difference in how a line is folded shows up as a different string.",
+      "k1": "Every value below is written by one implementation and read by the other, so a difference in how a line is folded shows up as a different string.",
+      "k2": "Every value below is written by one implementation and read by the other, so a difference in how a line is folded shows up as a different string.",
+      "k3": "Every value below is written by one implementation and read by the other, so a difference in how a line is folded shows up as a different string."
+    }
+  },
+  {
+    "id": "seq-of-seq-of-maps",
+    "value": [
+      [
+        {
+          "a": 1
+        },
+        {
+          "b": [
+            2,
+            3
+          ]
+        }
+      ],
+      [
+        {
+          "c": {}
+        }
+      ]
+    ]
+  },
+  {
+    "id": "map-wide-nested",
+    "value": {
+      "outer": {
+        "inner": [
+          {
+            "deep": {
+              "deeper": [
+                "xx",
+                "yy"
+              ]
+            }
+          }
+        ]
+      }
+    }
+  }
+]

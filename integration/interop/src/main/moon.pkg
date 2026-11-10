@@ -1,0 +1,13 @@
+// The exchange program. It reads the corpus, writes the documents this library
+// makes of it, and reads back the documents another implementation made; the
+// check that drives it runs it natively, and it is written so that every target
+// still compiles it.
+import {
+  "moonbitlang/core/env",
+  "moonbitlang/core/json",
+  "moonbitlang/x/fs",
+  "moonbitstack/moonyaml",
+  "moonbitstack/moonyaml/yaml11",
+}
+
+pkgtype(kind: "executable")

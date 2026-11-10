@@ -97,3 +97,36 @@ jobs:
         if: runner.os == 'Linux'
         run: python3 scripts/check_snippets.py
 
+  # Another implementation, in both directions: the corpus is written here and
+  # read there, and written there and read here, with the values compared after
+  # each leg — under YAML 1.2 and again under 1.1. One platform: what is being
+  # measured is a reader against a reader, and the partner is the same pinned
+  # package everywhere.
+  interop:
+    permissions:
+      contents: read
+    runs-on: ubuntu-26.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+
+      - name: install moonbit
+        run: |
+          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
+          echo "$HOME/.moon/bin" >> $GITHUB_PATH
+
+      - name: post install
+        run: |
+          moon version --all
+          moon update
+
+      - name: the other implementation
+        run: python3 -m pip install --quiet -r scripts/interop-requirements.txt
+
+      - name: bidirectional interop, YAML 1.2 and 1.1
+        run: python3 scripts/check_interop.py

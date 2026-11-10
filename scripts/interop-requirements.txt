@@ -1,0 +1,4 @@
+# What scripts/check_interop.py needs, at the version the check was written
+# against. Pins, because a check that measures a different implementation on
+# every machine measures nothing in particular.
+ruamel.yaml==0.19.1

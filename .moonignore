@@ -12,3 +12,8 @@ target/
 docs/
 scripts/
 tools/
+
+# The exchange module and the workspace manifest that resolves it to this tree
+# are for the check in CI; a caller downloads the library, not a test rig.
+integration/
+moon.work
