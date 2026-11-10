@@ -543,6 +543,7 @@
   binary : Bool
   underscores : Bool
   sexagesimal : Bool
+  dots : Bool
   strings : Bool
 }</code></pre>
 <div class="prose"><p>What a YAML version resolves an unquoted scalar to.</p>
@@ -554,7 +555,7 @@
 </div>
 <div class="field">
 <code class="name">letters : Bool</code>
-<div class="prose"><p><code>y</code>/<code>n</code>, in either case, are booleans — YAML 1.0 only; 1.1 dropped them.</p></div>
+<div class="prose"><p><code>y</code>/<code>n</code>, in either case, are booleans. YAML 1.0's rule, and 1.1's type repository lists them too, but every reader built on libyaml reads them as strings — as <code>yaml11</code> does, because a lone <code>n</code> is more often a name.</p></div>
 </div>
 <div class="field">
 <code class="name">octal : Bool</code>
@@ -571,6 +572,10 @@
 <div class="field">
 <code class="name">sexagesimal : Bool</code>
 <div class="prose"><p><code>1:30</code> is ninety and <code>1:30.5</code> is ninety and a half (1.1 §10.3).</p></div>
+</div>
+<div class="field">
+<code class="name">dots : Bool</code>
+<div class="prose"><p>A float carries a dot in its mantissa: <code>1.5e3</code> is a number and <code>1e3</code> is a string. YAML 1.0 and 1.1 write floats that way (§10.3); 1.2 follows JSON, where the exponent may stand alone.</p></div>
 </div>
 <div class="field">
 <code class="name">strings : Bool</code>
@@ -730,7 +735,7 @@
 <h3 id="values">Values</h3>
 <div class="item" id="ancient_rules">
 <pre class="sig"><code>pub let ancient_rules : Rules</code></pre>
-<div class="prose"><p>YAML 1.0's, which is 1.1 plus the single letters <code>y</code> and <code>n</code>. The 1.1 revision removed them because a lone <code>n</code> is more often a name than a no.</p></div>
+<div class="prose"><p>YAML 1.0's, which is 1.1 plus the single letters <code>y</code> and <code>n</code>. 1.1's type repository keeps the four; the readers that follow it do not, because a lone <code>n</code> is more often a name than a no — which is why <code>yaml11</code> has them off and this package is where they are on.</p></div>
 </div>
 <div class="item" id="budget">
 <pre class="sig"><code>pub let budget : Int32</code></pre>

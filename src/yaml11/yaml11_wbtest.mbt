@@ -52,3 +52,14 @@ test "a string 1.1 would read back as a boolean is quoted when written" {
   // And what is written reads back as what was written.
   assert_eq(loads(dumps(doc)[:]).stringify(), doc.stringify())
 }
+
+///|
+test "1.1's floats: a dot in the mantissa, or the text it is" {
+  // 1.0 and 1.1 write a float with a dot in its mantissa; an exponent on its own
+  // is a string, which is what a reader of those documents expects to get.
+  assert_eq(j("a: 1e3\n"), "{\"a\":\"1e3\"}")
+  assert_eq(j("a: 1.5e3\n"), "{\"a\":1500}")
+  assert_eq(j("a: 1.5e-3\n"), "{\"a\":0.0015}")
+  // 1.2 reads the same three differently, which is the whole point of the rule.
+  assert_eq(@moonyaml.loads("a: 1e3\n"[:]).stringify(), "{\"a\":1000}")
+}

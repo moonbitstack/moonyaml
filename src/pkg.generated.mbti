@@ -199,6 +199,7 @@ pub(all) struct Rules {
   binary : Bool
   underscores : Bool
   sexagesimal : Bool
+  dots : Bool
   strings : Bool
 }
 pub fn Rules::equal(Self, Self) -> Bool

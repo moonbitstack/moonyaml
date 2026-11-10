@@ -262,9 +262,41 @@ fn two_hex(out : StringBuilder, c : Int32) -> Unit {
 fn write_number(out : StringBuilder, n : Double) -> Unit {
   if n == n.floor() && n.abs() < 1.0e15 {
     out.write_string(n.to_int64().to_string())
-  } else {
-    out.write_string(n.to_string())
+    return
   }
+  write_number_text(out, n.to_string())
+}
+
+///|
+/// A number's own text, with the dot 1.0 and 1.1 want in a float's mantissa:
+/// those rules read `1e30` as a string, and 1.2 does not mind the dot. The text a
+/// value carries is written here too, since a number wide enough to keep its
+/// digits is written as it was read.
+fn write_number_text(out : StringBuilder, text : String) -> Unit {
+  guard exponent_at(text) is Some(at) else {
+    out.write_string(text)
+    return
+  }
+  let dot = index_of_unit(text, 0x2e)
+  if dot >= 0 && dot < at {
+    out.write_string(text)
+  } else {
+    out.write_string(text.exact_view(start=0, end=at).to_owned())
+    out.write_string(".0")
+    out.write_string(text.exact_view(start=at, end=text.length()).to_owned())
+  }
+}
+
+///|
+/// Where the exponent of a number in scientific notation begins, if there is one.
+fn exponent_at(text : String) -> Int32? {
+  for i = 0; i < text.length(); i = i + 1 {
+    let c = text[i].to_int()
+    if c == 0x65 || c == 0x45 {
+      return Some(i)
+    }
+  }
+  None
 }
 
 ///|
@@ -321,7 +353,7 @@ fn write_scalar(
       // holds — is written as that text, or the digits it stands for would be
       // rounded away on the way out.
       match repr {
-        Some(text) => out.write_string(text)
+        Some(text) => write_number_text(out, text)
         None => write_number(out, n)
       }
     String(s) => write_text(out, s, style, rules)

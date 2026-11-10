@@ -199,7 +199,9 @@ pub fn Flavor::new(
 pub(all) struct Rules {
   /// `yes`/`no`/`on`/`off` are booleans (YAML 1.1 §10.3).
   yes_no : Bool
-  /// `y`/`n`, in either case, are booleans — YAML 1.0 only; 1.1 dropped them.
+  /// `y`/`n`, in either case, are booleans. YAML 1.0's rule, and 1.1's type
+  /// repository lists them too, but every reader built on libyaml reads them as
+  /// strings — as `yaml11` does, because a lone `n` is more often a name.
   letters : Bool
   /// A `0` prefix means octal: `014` is twelve (1.1 §10.3); 1.2 spells it `0o14`.
   octal : Bool
@@ -209,6 +211,10 @@ pub(all) struct Rules {
   underscores : Bool
   /// `1:30` is ninety and `1:30.5` is ninety and a half (1.1 §10.3).
   sexagesimal : Bool
+  /// A float carries a dot in its mantissa: `1.5e3` is a number and `1e3` is a
+  /// string. YAML 1.0 and 1.1 write floats that way (§10.3); 1.2 follows JSON,
+  /// where the exponent may stand alone.
+  dots : Bool
   /// Every scalar is a string, whatever it looks like — StrictYAML's first rule,
   /// and the reason a StrictYAML document never surprises a reader.
   strings : Bool
@@ -230,6 +236,7 @@ pub let core_rules : Rules = {
   binary: false,
   underscores: false,
   sexagesimal: false,
+  dots: false,
   strings: false,
 }
 
@@ -243,12 +250,15 @@ pub let legacy_rules : Rules = {
   binary: true,
   underscores: true,
   sexagesimal: true,
+  dots: true,
   strings: false,
 }
 
 ///|
-/// YAML 1.0's, which is 1.1 plus the single letters `y` and `n`. The 1.1 revision
-/// removed them because a lone `n` is more often a name than a no.
+/// YAML 1.0's, which is 1.1 plus the single letters `y` and `n`. 1.1's type
+/// repository keeps the four; the readers that follow it do not, because a lone
+/// `n` is more often a name than a no — which is why `yaml11` has them off and
+/// this package is where they are on.
 pub let ancient_rules : Rules = { ..legacy_rules, letters: true, }
 
 ///|

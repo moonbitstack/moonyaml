@@ -2544,11 +2544,13 @@ fn number(s : String, rules : Rules) -> Double? {
   // has to be done exactly — multiplying a mantissa by ten in a loop accumulates
   // an error, and `1e30` has to come back as the double `1e30` names.
   let mut digits = false
+  let mut dot = false
   while i < text.length() && ascii_digit(text[i].to_int()) {
     digits = true
     i = i + 1
   }
   if i < text.length() && text[i].to_int() == 0x2e {
+    dot = true
     i = i + 1
     while i < text.length() && ascii_digit(text[i].to_int()) {
       digits = true
@@ -2559,6 +2561,11 @@ fn number(s : String, rules : Rules) -> Double? {
     return None
   }
   if i < text.length() && (text[i].to_int() == 0x65 || text[i].to_int() == 0x45) {
+    // YAML 1.0 and 1.1 want the mantissa to carry a dot, which is why `1e3` is a
+    // string there and a number in 1.2.
+    if rules.dots && !dot {
+      return None
+    }
     i = i + 1
     if i < text.length() &&
       (text[i].to_int() == 0x2b || text[i].to_int() == 0x2d) {

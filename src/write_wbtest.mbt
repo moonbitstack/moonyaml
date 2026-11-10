@@ -247,3 +247,17 @@ test "a long string that has to be quoted is quoted, not written bare" {
     "a: \"" + long + "\"\n",
   )
 }
+
+///|
+test "a float in exponent form keeps the dot the older rules want" {
+  // 1.0 and 1.1 read `1e30` as a string, so a float is written with a dot in its
+  // mantissa — the one form both they and 1.2 read as the same number.
+  assert_eq(dumps(Json::number(1.0e30)), "1.0e+30\n")
+  assert_eq(dumps(Json::number(1.0e-7)), "1.0e-7\n")
+  assert_eq(dumps(loads("1e30"[:])), "1.0e+30\n")
+  // A whole value still loses its `.0`: a port is 8080, not 8080.0.
+  assert_eq(dumps(Json::number(1500.0)), "1500\n")
+  // Under 1.1's rules a string that looks like one of them is written plain,
+  // because that is what 1.1 reads it as.
+  assert_eq(dumps(Json::string("1e3"), rules=legacy_rules), "1e3\n")
+}

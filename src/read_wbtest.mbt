@@ -403,3 +403,15 @@ test "the escapes for the characters some scanners treat as breaks" {
     Json::string("a\u{9f}b").stringify(),
   )
 }
+
+///|
+test "a float needs a dot in its mantissa under the older rules" {
+  let older : Schema = { ..core, rules: legacy_rules, }
+  // 1.2 follows JSON, where an exponent may stand alone.
+  assert_eq(loads("1e3"[:]).stringify(), "1000")
+  // 1.0 and 1.1 write a float with a dot in its mantissa, so `1e3` is the text
+  // it looks like and `1.5e3` is the number.
+  assert_eq(loads("1e3"[:], schema=older).stringify(), "\"1e3\"")
+  assert_eq(loads("1.5e3"[:], schema=older).stringify(), "1500")
+  assert_eq(loads("1.5e-3"[:], schema=older).stringify(), "0.0015")
+}
