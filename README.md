@@ -107,8 +107,9 @@ twenty digits instead of the one the double rounds to.
 
 `yes` and `no` are strings here, as YAML 1.2 says they are. They are booleans in
 1.1, which is `yaml11`, and the difference is a package boundary rather than a
-flag: `014` is twelve there and fourteen here, and `1:30` is ninety there and a
-string here.
+flag: `014` is twelve there and fourteen here, `1:30` is ninety there and a string
+here, and `1e3` is a string there and a thousand here — 1.0 and 1.1 write a float
+with a dot in its mantissa, and 1.2 writes one as JSON does.
 
 ```moonbit
 test {
@@ -321,10 +322,14 @@ the suite says it must be, or held to the event stream it records — and the wr
 by writing each of those documents back and reading it again as the same
 document.
 
-The reader and the writer are also checked against another implementation in both
-directions: a corpus of documents written here and read back there, and the same
-corpus written there and read back here, with the value compared after each leg,
-under YAML 1.2 and again under 1.1. Every case agrees.
+The reader and the writer are also checked against two other implementations, in
+both directions: a corpus of documents written here and read back there, and the
+same corpus written there and read back here, with the value compared after each
+leg, under YAML 1.2 and again under 1.1. One of the two is the C implementation
+most of the world's YAML readers are built on, and it resolves under 1.1 only —
+the resolver is the one it has — so it is the second opinion on that half of the
+corpus. Every case agrees, except the ones the corpus says readers differ on, on
+purpose.
 
 Two readings differ from some implementations, on purpose:
 
@@ -332,9 +337,11 @@ Two readings differ from some implementations, on purpose:
   timestamp type, so `2024-01-01` is the text it is; a reader that keeps 1.1's
   timestamp resolver hands back a date.
 - A lone `y`, `Y`, `n` or `N` is a string, in `yaml11` as well. YAML 1.1's type
-  repository lists the four as booleans and some readers take them that way;
-  here they are letters, because a lone `n` in a configuration file is far more
-  often a name than a no. `yaml10` is where the four are booleans.
+  repository lists the four as booleans, and one of the two implementations
+  checked here reads them that way; the C implementation the others are built on
+  reads them as strings, as this library does, because a lone `n` in a
+  configuration file is far more often a name than a no. `yaml10` is where the
+  four are booleans.
 
 ## Examples
 

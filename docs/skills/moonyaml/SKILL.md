@@ -17,7 +17,7 @@ the same `loads`/`loads_all`/`load`/`load_all`/`dumps`/`dumps_all`:
 | Package | Meaning |
 |:--|:--|
 | `moonbitstack/moonyaml` | 1.2.2: `yes` is a string, `014` is fourteen |
-| `moonbitstack/moonyaml/yaml11` | 1.1: `yes` is a boolean, `014` is twelve, `12:30` is 750, `<<` merges |
+| `moonbitstack/moonyaml/yaml11` | 1.1: `yes` is a boolean, `014` is twelve, `12:30` is 750, `1e3` is a string, `<<` merges |
 | `moonbitstack/moonyaml/yaml10` | 1.0: 1.1, and `y`/`n` are booleans too |
 | `moonbitstack/moonyaml/strict` | Block structure, every scalar a string, no tags or anchors |
 | `moonbitstack/moonyaml/any` | The version the document names with `%YAML`, 1.2.2 when it names none |
