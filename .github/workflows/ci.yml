@@ -45,6 +45,18 @@ jobs:
       - name: moon test (all backends)
         run: moon test --target all
 
+      # The examples are part of the product, and a run that panics is a build that
+      # fails here rather than in a reader's terminal.
+      - name: the examples run
+        if: runner.os == 'Linux'
+        run: |
+          for dir in src/examples/*/; do
+            [ -f "$dir/moon.pkg" ] || continue
+            grep -q 'executable' "$dir/moon.pkg" || continue
+            echo "--- $dir"
+            moon run "$dir" --target native
+          done
+
       # The suite scores are printed by the tests themselves, so the numbers in
       # README.md have a second author: this step lifts them into the run's
       # summary, and the assertions behind them are what fails the build.
@@ -77,6 +89,16 @@ jobs:
           curl -fsSL "https://codeload.github.com/yaml/yaml-test-suite/tar.gz/$sha" \
             | tar -xz -C "$RUNNER_TEMP/suite" --strip-components=1
           python3 scripts/gen_suite.py --check "$RUNNER_TEMP/suite"
+
+      # Neither of the two YAML 1.1 behaviours below is in the suite — it is
+      # written for 1.2 — so both are held against another implementation, and
+      # its answers are committed as data. Regenerating from that implementation
+      # has to give the files in the repository.
+      - name: the reference vectors match the other implementation
+        if: runner.os == 'Linux'
+        run: |
+          python3 -m pip install --quiet -r scripts/interop-requirements.txt
+          python3 scripts/gen_reference_vectors.py --check
 
       - name: interfaces are up to date
         run: |
