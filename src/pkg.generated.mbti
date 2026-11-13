@@ -201,6 +201,8 @@ pub(all) struct Rules {
   sexagesimal : Bool
   dots : Bool
   strings : Bool
+  breaks : Bool
+  timestamp : Bool
 }
 pub fn Rules::equal(Self, Self) -> Bool
 pub fn Rules::not_equal(Self, Self) -> Bool

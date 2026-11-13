@@ -104,26 +104,71 @@ fn Reader::bump(self : Reader) -> Unit {
       self.line = self.line + 1
       self.bol = self.pos
     }
+  } else if self.break_unit(c) {
+    self.line = self.line + 1
+    self.bol = self.pos
   }
 }
 
 ///|
-/// Consume one line break, if the cursor is on one.
-fn Reader::brk(self : Reader) -> Bool {
+/// Whether a code unit ends a line under this version.
+///
+/// A line feed and a carriage return end one everywhere. YAML 1.1 also read the
+/// three characters Unicode calls line breaks — NEL (`U+0085`), LS (`U+2028`) and
+/// PS (`U+2029`) — as ending a line, so a document written on a mainframe or with
+/// a word processor's paragraph marks was one document and not one long line
+/// (§5.4). 1.2 narrowed a break back to the first two, so they are ordinary
+/// characters there.
+fn Reader::break_unit(self : Reader, u : Int32) -> Bool {
+  if u == 0x0a || u == 0x0d {
+    true
+  } else {
+    self.schema.rules.breaks && (u == 0x85 || u == 0x2028 || u == 0x2029)
+  }
+}
+
+///|
+/// Whether a code unit separates tokens: a blank, a line break, or the end of the
+/// stream.
+fn Reader::separated(self : Reader, u : Int32) -> Bool {
+  u == -1 || u == 0x20 || u == 0x09 || self.break_unit(u)
+}
+
+///|
+/// One line break, consumed, as the text it stands for inside scalar content.
+///
+/// A generic break — CRLF, CR, LF, and in 1.1 NEL — is normalised to a line feed;
+/// a specific one, LS or PS, is content and is kept as itself (§5.4 of 1.1). `None`
+/// where the cursor is on anything else.
+fn Reader::take_break(self : Reader) -> String? {
   match self.cur() {
     0x0d => {
       self.bump()
       if self.cur() == 0x0a {
         self.bump()
       }
-      true
+      Some("\n")
     }
     0x0a => {
       self.bump()
-      true
+      Some("\n")
     }
-    _ => false
+    c =>
+      if self.break_unit(c) {
+        self.bump()
+        // NEL is a generic break, so it stands for a line feed; LS and PS are
+        // specific ones, and inside scalar content they are kept as themselves.
+        Some(if c == 0x85 { "\n" } else { c.unsafe_to_char().to_string() })
+      } else {
+        None
+      }
   }
+}
+
+///|
+/// Consume one line break, if the cursor is on one.
+fn Reader::brk(self : Reader) -> Bool {
+  self.take_break() is Some(_)
 }
 
 ///|
@@ -150,7 +195,7 @@ fn Reader::at_note(self : Reader) -> Bool {
 /// Skip a comment, if one starts here, up to but not including the line break.
 fn Reader::note(self : Reader) -> Unit {
   if self.at_note() {
-    while !self.eof() && self.cur() != 0x0a && self.cur() != 0x0d {
+    while !self.eof() && !self.at_break() {
       self.bump()
     }
   }
@@ -175,10 +220,7 @@ fn Reader::skip(self : Reader) -> Unit {
 fn Reader::spent_line(self : Reader) -> Bool {
   let save = (self.pos, self.line, self.bol)
   self.gap()
-  let done = self.eof() ||
-    self.at_note() ||
-    self.cur() == 0x0a ||
-    self.cur() == 0x0d
+  let done = self.eof() || self.at_note() || self.at_break()
   self.pos = save.0
   self.line = save.1
   self.bol = save.2
@@ -287,7 +329,7 @@ fn Reader::document(self : Reader) -> Json? raise Refused {
 ///|
 /// Whether the cursor is on a line break.
 fn Reader::at_break(self : Reader) -> Bool {
-  self.cur() == 0x0a || self.cur() == 0x0d
+  self.break_unit(self.cur())
 }
 
 ///|
@@ -302,12 +344,7 @@ fn Reader::marker(self : Reader, want : String) -> Bool {
       return false
     }
   }
-  let after = self.ahead(3)
-  if after != -1 &&
-    after != 0x20 &&
-    after != 0x09 &&
-    after != 0x0a &&
-    after != 0x0d {
+  if !self.separated(self.ahead(3)) {
     return false
   }
   for i = 0; i < 3; i = i + 1 {
@@ -323,7 +360,7 @@ fn Reader::at_marker(self : Reader) -> Bool {
   self.ahead(0) == 0x2d &&
   self.ahead(1) == 0x2d &&
   self.ahead(2) == 0x2d &&
-  self.ahead(3) is (-1 | 0x20 | 0x09 | 0x0a | 0x0d)
+  self.separated(self.ahead(3))
 }
 
 ///|
@@ -333,7 +370,7 @@ fn Reader::at_end_marker(self : Reader) -> Bool {
   self.ahead(0) == 0x2e &&
   self.ahead(1) == 0x2e &&
   self.ahead(2) == 0x2e &&
-  self.ahead(3) is (-1 | 0x20 | 0x09 | 0x0a | 0x0d)
+  self.separated(self.ahead(3))
 }
 
 ///|
@@ -386,7 +423,7 @@ fn Reader::directive(self : Reader) -> Unit raise Refused {
     }
   } else {
     // The rest of the line, whatever it says, is this directive's parameter.
-    while !self.eof() && self.cur() != 0x0a && self.cur() != 0x0d {
+    while !self.eof() && !self.at_break() {
       self.bump()
     }
   }
@@ -411,11 +448,7 @@ fn is_handle(handle : String) -> Bool {
 /// The run of non-space, non-break characters at the cursor.
 fn Reader::until_gap(self : Reader) -> String {
   let start = self.pos
-  while !self.eof() &&
-        self.cur() != 0x20 &&
-        self.cur() != 0x09 &&
-        self.cur() != 0x0a &&
-        self.cur() != 0x0d {
+  while !self.eof() && !self.separated(self.cur()) {
     self.bump()
   }
   self.src[start:self.pos].to_owned()
@@ -532,15 +565,10 @@ fn Reader::until_anchor(self : Reader) -> String {
   let start = self.pos
   while !self.eof() {
     let c = self.cur()
-    if c == 0x20 ||
-      c == 0x09 ||
-      c == 0x0a ||
-      c == 0x0d ||
-      c == 0x2c ||
-      c == 0x5b ||
-      c == 0x5d ||
-      c == 0x7b ||
-      c == 0x7d {
+    if c == 0x20 || c == 0x09 || self.break_unit(c) {
+      break
+    }
+    if c is (0x2c | 0x5b | 0x5d | 0x7b | 0x7d) {
       break
     }
     self.bump()
@@ -570,15 +598,10 @@ fn Reader::tag(self : Reader) -> String raise Refused {
   let start = self.pos
   while !self.eof() {
     let c = self.cur()
-    if c == 0x20 ||
-      c == 0x09 ||
-      c == 0x0a ||
-      c == 0x0d ||
-      c == 0x2c ||
-      c == 0x5b ||
-      c == 0x5d ||
-      c == 0x7b ||
-      c == 0x7d {
+    if c == 0x20 || c == 0x09 || self.break_unit(c) {
+      break
+    }
+    if c is (0x2c | 0x5b | 0x5d | 0x7b | 0x7d) {
       break
     }
     self.bump()
@@ -799,9 +822,12 @@ fn Reader::body(
         }
         return self.block_map(col, depth)
       }
-      let at = self.at()
       let own = (self.pos, self.line, self.bol)
       let own_col = self.column()
+      // The blanks a tag leaves behind are not part of the scalar, and a fault in
+      // the scalar points at the character that is.
+      self.gap()
+      let at = self.at()
       let (text, quoted) = self.scalar_text(Mode::Block, indent)
       let tail = (self.pos, self.line, self.bol)
       self.gap()
@@ -833,19 +859,24 @@ fn Reader::body(
 /// Whether a block sequence entry starts at the cursor: a `-` that is on its own or
 /// followed by a space, rather than the start of a number like `-1`.
 fn Reader::at_item(self : Reader) -> Bool {
-  self.cur() == 0x2d && self.ahead(1) is (-1 | 0x20 | 0x09 | 0x0a | 0x0d)
+  self.cur() == 0x2d && self.separated(self.ahead(1))
 }
 
 ///|
 /// Whether an explicit key indicator `? ` starts at the cursor (§8.2.2).
 fn Reader::at_explicit_key(self : Reader) -> Bool {
-  self.cur() == 0x3f && self.ahead(1) is (-1 | 0x20 | 0x09 | 0x0a | 0x0d)
+  self.cur() == 0x3f && self.separated(self.ahead(1))
 }
 
 ///|
-/// Whether a code unit separates tokens: a blank, a break, or a flow indicator.
-fn ends_token(c : Int32) -> Bool {
-  c is (0x20 | 0x09 | 0x0a | 0x0d | 0x2c | 0x5b | 0x5d | 0x7b | 0x7d | -1)
+/// Whether a code unit separates tokens: a blank, a break, a flow indicator, or the
+/// end of the stream.
+fn Reader::ends_token(self : Reader, c : Int32) -> Bool {
+  if c is (0x20 | 0x09 | 0x2c | 0x5b | 0x5d | 0x7b | 0x7d | -1) {
+    true
+  } else {
+    self.break_unit(c)
+  }
 }
 
 ///|
@@ -860,7 +891,7 @@ fn Reader::alias_line(self : Reader) -> Bool {
   }
   let n = self.src.length()
   let mut i = self.pos + 1
-  while i < n && !ends_token(self.src[i].to_int()) {
+  while i < n && !self.ends_token(self.src[i].to_int()) {
     i = i + 1
   }
   // Blanks may separate the name from the colon; a break may not, because a key
@@ -872,7 +903,7 @@ fn Reader::alias_line(self : Reader) -> Bool {
     return false
   }
   let next = if i + 1 < n { self.src[i + 1].to_int() } else { -1 }
-  next is (0x20 | 0x09 | 0x0a | 0x0d | -1)
+  self.separated(next)
 }
 
 ///|
@@ -884,7 +915,7 @@ fn Reader::alias_line(self : Reader) -> Bool {
 /// only entry.
 fn Reader::at_empty_key(self : Reader) -> Bool {
   self.cur() == 0x3a &&
-  self.ahead(1) is (0x20 | 0x09 | 0x0a | 0x0d | 0x2c | 0x5d | 0x7d | -1)
+  (self.separated(self.ahead(1)) || self.ahead(1) is (0x2c | 0x5d | 0x7d))
 }
 
 ///|
@@ -928,7 +959,7 @@ fn Reader::flow_key(self : Reader) -> Bool {
         }
         if j < n && self.src[j].to_int() == 0x3a {
           let next = if j + 1 < n { self.src[j + 1].to_int() } else { -1 }
-          return next is (0x20 | 0x09 | 0x0a | 0x0d | -1)
+          return self.separated(next)
         }
         return false
       }
@@ -956,7 +987,7 @@ fn Reader::key_line(self : Reader) -> Bool {
     }
     if i < n && self.src[i].to_int() == 0x26 {
       i = i + 1
-      while i < n && !ends_token(self.src[i].to_int()) {
+      while i < n && !self.ends_token(self.src[i].to_int()) {
         i = i + 1
       }
       continue
@@ -966,7 +997,7 @@ fn Reader::key_line(self : Reader) -> Bool {
         i = i + 2
         while i < n &&
               self.src[i].to_int() != 0x3e &&
-              self.src[i].to_int() != 0x0a {
+              !self.break_unit(self.src[i].to_int()) {
           i = i + 1
         }
         if i < n && self.src[i].to_int() == 0x3e {
@@ -974,7 +1005,7 @@ fn Reader::key_line(self : Reader) -> Bool {
         }
       } else {
         i = i + 1
-        while i < n && !ends_token(self.src[i].to_int()) {
+        while i < n && !self.ends_token(self.src[i].to_int()) {
           i = i + 1
         }
       }
@@ -989,7 +1020,7 @@ fn Reader::key_line(self : Reader) -> Bool {
     let mut closed = false
     while i < n && !closed {
       let c = self.src[i].to_int()
-      if c == 0x0a || c == 0x0d {
+      if self.break_unit(c) {
         return false
       }
       i = i + 1
@@ -1017,13 +1048,13 @@ fn Reader::key_line(self : Reader) -> Bool {
   let mut any = false
   while i < n {
     let c = self.src[i].to_int()
-    if c == 0x0a || c == 0x0d {
+    if self.break_unit(c) {
       return false
     }
     let next = if i + 1 < n { self.src[i + 1].to_int() } else { -1 }
     // A colon at the start of the line is a pair whose key was not written, which
     // is a key line like any other (§8.2.2).
-    if c == 0x3a && next is (0x20 | 0x09 | 0x0a | 0x0d | -1) {
+    if c == 0x3a && self.separated(next) {
       return true
     }
     if c == 0x23 && any && self.src[i - 1].to_int() is (0x20 | 0x09) {
@@ -1038,7 +1069,7 @@ fn Reader::key_line(self : Reader) -> Bool {
 ///|
 /// Whether the cursor sits on the `: ` that separates a key from its value.
 fn Reader::at_value_sep(self : Reader) -> Bool {
-  self.cur() == 0x3a && self.ahead(1) is (-1 | 0x20 | 0x09 | 0x0a | 0x0d)
+  self.cur() == 0x3a && self.separated(self.ahead(1))
 }
 
 ///|
@@ -1737,9 +1768,22 @@ fn Reader::single(self : Reader, indent : Int32) -> String raise Refused {
       }
       break
     }
-    if c == 0x0a || c == 0x0d {
+    if self.break_unit(c) {
       blanks = ""
-      out.write_string(self.fold(at, indent))
+      if c == 0x2028 || c == 0x2029 {
+        // A specific break is content: nothing is folded away and the line that
+        // follows it is not a continuation to be indented, because it does not
+        // start a line as far as the value is concerned (§5.4 of 1.1).
+        out.write_string(
+          match self.take_break() {
+            Some(text) => text
+            None => ""
+          },
+        )
+        self.gap()
+      } else {
+        out.write_string(self.fold(at, indent))
+      }
       continue
     }
     if is_blank(c) {
@@ -1780,7 +1824,7 @@ fn Reader::double(self : Reader, indent : Int32) -> String raise Refused {
       self.bump()
       // A backslash at end of line joins the two lines with no space at all,
       // which is the only way to write a long line with no break in it (§7.3.1).
-      if self.cur() == 0x0a || self.cur() == 0x0d {
+      if self.at_break() {
         let _ = self.brk()
 
         self.gap()
@@ -1789,9 +1833,22 @@ fn Reader::double(self : Reader, indent : Int32) -> String raise Refused {
       self.escape(out, eat)
       continue
     }
-    if c == 0x0a || c == 0x0d {
+    if self.break_unit(c) {
       blanks = ""
-      out.write_string(self.fold(at, indent))
+      if c == 0x2028 || c == 0x2029 {
+        // A specific break is content: nothing is folded away and the line that
+        // follows it is not a continuation to be indented, because it does not
+        // start a line as far as the value is concerned (§5.4 of 1.1).
+        out.write_string(
+          match self.take_break() {
+            Some(text) => text
+            None => ""
+          },
+        )
+        self.gap()
+      } else {
+        out.write_string(self.fold(at, indent))
+      }
       continue
     }
     if is_blank(c) {
@@ -1884,22 +1941,21 @@ fn nibble(c : Int32) -> Int32? {
 /// The line break inside a quoted or plain scalar, folded (§6.5): one break becomes
 /// a space, and each break after the first stays a break.
 fn Reader::fold(self : Reader, at : At, indent : Int32) -> String raise Refused {
-  let mut breaks = 0
+  let breaks : Array[String] = []
   for ;; {
     // A tab is separation here, not indentation: it is skipped with the blanks,
     // which is what every reader in the field does with a document that puts one
     // at the start of a continuation line (§6.1 says it should be refused).
     self.gap()
-    if self.brk() {
-      breaks = breaks + 1
-      continue
+    match self.take_break() {
+      Some(text) => breaks.push(text)
+      None => break
     }
-    break
   }
   if self.eof() {
     raise Truncated(at)
   }
-  if breaks > 0 && self.indent() <= indent {
+  if breaks.length() > 0 && self.indent() <= indent {
     // A quoted scalar that runs on is a continuation of the node it belongs to, so
     // it has to be indented past that node's block (§7.3.1). A tab is not
     // indentation (§5.5), so a continuation line written with nothing but tabs
@@ -1910,15 +1966,32 @@ fn Reader::fold(self : Reader, at : At, indent : Int32) -> String raise Refused 
     // A quoted scalar may not swallow a document marker (§9.1.1).
     raise Unexpected(self.at(), self.printable())
   }
-  if breaks <= 1 {
-    " "
-  } else {
-    let out = StringBuilder()
-    for i = 1; i < breaks; i = i + 1 {
-      out.write_char('\n')
-    }
-    out.to_string()
+  folded(breaks)
+}
+
+///|
+/// What a run of breaks stands for inside a scalar.
+///
+/// One generic break is a space, and further ones are line feeds — except a
+/// specific break, LS or PS, which is content: it is never folded into a space, and
+/// it is kept as itself (§5.4 of 1.1, §6.5).
+fn folded(breaks : Array[String]) -> String {
+  if breaks.length() == 0 {
+    return ""
   }
+  let out = StringBuilder()
+  let mut i = 0
+  if breaks[0] == "\n" {
+    if breaks.length() == 1 {
+      out.write_char(' ')
+      return out.to_string()
+    }
+    i = 1
+  }
+  for k = i; k < breaks.length(); k = k + 1 {
+    out.write_string(breaks[k])
+  }
+  out.to_string()
 }
 
 ///|
@@ -1940,7 +2013,7 @@ fn Reader::plain(
     let start = self.pos
     while !self.eof() {
       let c = self.cur()
-      if c == 0x0a || c == 0x0d {
+      if self.break_unit(c) {
         break
       }
       // ` #` begins a comment; a `#` glued to a character is part of the value.
@@ -1956,7 +2029,7 @@ fn Reader::plain(
       // text (§7.3.3).
       if c == 0x3a {
         let next = self.ahead(1)
-        let blank = next is (-1 | 0x20 | 0x09 | 0x0a | 0x0d)
+        let blank = self.separated(next)
         let indicator = mode is Flow &&
           next is (0x2c | 0x5b | 0x5d | 0x7b | 0x7d)
         if blank || indicator {
@@ -1990,7 +2063,7 @@ fn Reader::plain(
       break
     }
     let save = (self.pos, self.line, self.bol)
-    let mut breaks = 0
+    let breaks : Array[String] = []
     let mut commented = false
     for ;; {
       self.gap()
@@ -1999,13 +2072,12 @@ fn Reader::plain(
         commented = true
         break
       }
-      if self.brk() {
-        breaks = breaks + 1
-        continue
+      match self.take_break() {
+        Some(text) => breaks.push(text)
+        None => break
       }
-      break
     }
-    if commented || breaks == 0 || self.eof() {
+    if commented || breaks.length() == 0 || self.eof() {
       self.pos = save.0
       self.line = save.1
       self.bol = save.2
@@ -2037,10 +2109,11 @@ fn Reader::plain(
         break
       }
     }
-    if breaks > 1 {
-      for i = 1; i < breaks; i = i + 1 {
-        out.write_char('\n')
-      }
+    // One break continues the same line with a space, which the next piece writes;
+    // anything more stands, and a line that starts again does not want that space.
+    let text = folded(breaks)
+    if text != " " {
+      out.write_string(text)
       first = true
     }
   }
@@ -2056,10 +2129,10 @@ fn Reader::opens_pair(self : Reader, indent : Int32) -> Bool {
   let mut found = false
   while !self.eof() {
     let c = self.cur()
-    if c == 0x0a || c == 0x0d {
+    if self.break_unit(c) {
       break
     }
-    if c == 0x3a && self.ahead(1) is (-1 | 0x20 | 0x09 | 0x0a | 0x0d) {
+    if c == 0x3a && self.separated(self.ahead(1)) {
       found = true
       break
     }
@@ -2166,7 +2239,11 @@ fn Reader::block_parts(
   // otherwise; empty lines before it may be wider and do not set it.
   let mut width = if explicit > 0 { indent + explicit } else { -1 }
   let lines : Array[String] = []
-  let mut leading = 0
+  // The break each line ended with, in the same order: 1.1 keeps LS and PS as
+  // content, so a block scalar is rebuilt out of the breaks the document had and not
+  // out of line feeds alone (§5.4).
+  let ends : Array[String] = []
+  let leading : Array[String] = []
   // The widest empty line seen before the content's indentation is known: §8.1.1.1
   // makes a leading empty line wider than the first content line a fault.
   let mut widest = 0
@@ -2188,17 +2265,20 @@ fn Reader::block_parts(
       self.bump()
       col = col + 1
     }
-    if self.cur() == 0x0a || self.cur() == 0x0d {
+    if self.at_break() {
       // An empty line: it belongs to the scalar whatever its width.
-      let _ = self.brk()
-
+      let end = match self.take_break() {
+        Some(text) => text
+        None => "\n"
+      }
       if width < 0 {
-        leading = leading + 1
+        leading.push(end)
         if col > widest {
           widest = col
         }
       } else {
         lines.push("")
+        ends.push(end)
       }
       continue
     }
@@ -2207,7 +2287,7 @@ fn Reader::block_parts(
       // content line that never came: it is an empty line, and an empty line is a
       // break the chomping indicator decides the fate of (§8.1.1.2).
       if width < 0 {
-        leading = leading + 1
+        leading.push("\n")
       }
       break
     }
@@ -2220,66 +2300,89 @@ fn Reader::block_parts(
         raise BadIndent(self.at())
       }
       width = col
-      for i = 0; i < leading; i = i + 1 {
+      for text in leading {
         lines.push("")
+        ends.push(text)
       }
-      leading = 0
+      leading.clear()
     } else if col < width {
       self.pos = bol
       break
     }
     let start = self.pos
-    while !self.eof() && self.cur() != 0x0a && self.cur() != 0x0d {
+    while !self.eof() && !self.at_break() {
       self.bump()
     }
     lines.push(self.src[start:self.pos].to_owned())
-    let _ = self.brk()
+    ends.push(
+      match self.take_break() {
+        Some(text) => text
+        None => "\n"
+      },
+    )
   }
   if width < 0 {
     // Nothing but empty lines: the scalar is however many breaks chomping keeps.
     return (chomped("", leading, chomp), chomp)
   }
   let out = StringBuilder()
-  let mut pending = 0
+  let pending : Array[String] = []
+  // The break that ended the last content line, which is the one that introduces
+  // whatever follows it.
+  let mut prev = ""
   let mut more_before = false
   let mut started = false
   for i = 0; i < lines.length(); i = i + 1 {
     let line = lines[i]
     if line.length() == 0 {
-      pending = pending + 1
+      pending.push(ends[i])
       continue
     }
     let more = is_blank(line[0].to_int())
     if !started {
       // Leading empty lines are breaks, however many there were.
-      for k = 0; k < pending; k = k + 1 {
-        out.write_char('\n')
+      for text in pending {
+        out.write_string(text)
       }
       started = true
-    } else if folded && pending == 0 && !more_before && !more {
+    } else if folded &&
+      pending.length() == 0 &&
+      !more_before &&
+      !more &&
+      prev == "\n" {
       // Two ordinary lines: the break between them folds into a space (§6.5).
       out.write_char(' ')
     } else {
-      // Otherwise the break stands. A blank line is itself a break, and a
-      // more-indented line keeps the break that introduces it too (§8.1.3).
+      // Otherwise the break stands. A blank line is itself a break, a more-indented
+      // line keeps the break that introduces it too (§8.1.3), and an LS or a PS is
+      // content that no folding may take away (§5.4).
       let keep = if !folded {
-        pending + 1
-      } else if more_before || more {
-        pending + 1
+        true
       } else {
-        pending
+        more_before || more || prev != "\n"
       }
-      for k = 0; k < keep; k = k + 1 {
-        out.write_char('\n')
+      if keep {
+        out.write_string(prev)
+      }
+      for text in pending {
+        out.write_string(text)
       }
     }
     out.write_string(line)
     more_before = more
-    pending = 0
+    prev = ends[i]
+    pending.clear()
   }
   let body = out.to_string()
-  let breaks = if body.length() == 0 { pending } else { pending + 1 }
-  (chomped(body, breaks, chomp), chomp)
+  // What the chomping indicator decides the fate of, in the order it was written.
+  let trailing : Array[String] = []
+  if body.length() > 0 {
+    trailing.push(prev)
+  }
+  for text in pending {
+    trailing.push(text)
+  }
+  (chomped(body, trailing, chomp), chomp)
 }
 
 ///|
@@ -2299,18 +2402,18 @@ fn Reader::block_scalar(
 ///|
 /// The body with its trailing line breaks as the chomping indicator asks: `-` none,
 /// `+` all of them, and neither exactly one (§8.1.1.2).
-fn chomped(body : String, breaks : Int32, chomp : Int32) -> String {
+fn chomped(body : String, trailing : Array[String], chomp : Int32) -> String {
   // Clipping keeps the final line break of the *content*; a scalar with no
   // content lines has no such break to keep, so it is empty.
   let keep = match chomp {
     -1 => 0
-    1 => breaks
-    _ => if breaks > 0 && body.length() > 0 { 1 } else { 0 }
+    1 => trailing.length()
+    _ => if trailing.length() > 0 && body.length() > 0 { 1 } else { 0 }
   }
   let out = StringBuilder()
   out.write_string(body)
   for i = 0; i < keep; i = i + 1 {
-    out.write_char('\n')
+    out.write_string(trailing[i])
   }
   out.to_string()
 }
@@ -2465,6 +2568,26 @@ fn tagged(
         Some(n) => Json::number(n)
         None => raise Unexpected(at, '?')
       }
+    "tag:yaml.org,2002:timestamp" =>
+      // A version that has the type reads the point in time and refuses a date that
+      // never happened; one that has no date type falls through to the text, which
+      // is what §10.4 asks of a tag this processor cannot construct.
+      if !rules.timestamp {
+        if quoted {
+          Json::string(text)
+        } else {
+          untagged(text, rules)
+        }
+      } else {
+        match timestamp_of(text[:]) {
+          Ok(written) => Json::string(written)
+          Err(off) =>
+            raise Unexpected(
+              { at: at.at + off, line: at.line, column: at.column + off, },
+              text[off].unsafe_to_char(),
+            )
+        }
+      }
     // The non-specific tags say "whatever this looks like" and "a string".
     "!" => Json::string(text)
     "?" => untagged(text, rules)
@@ -2472,6 +2595,248 @@ fn tagged(
     "tag:yaml.org,2002:seq" | "tag:yaml.org,2002:map" => raise BadTag(at, tag)
     _ => if quoted { Json::string(text) } else { untagged(text, rules) }
   }
+}
+
+///|
+/// A cursor over the text of a timestamp: each field is read where the one before it
+/// stopped, so a fault can say which character broke it.
+priv struct Stamp {
+  src : StringView
+  mut pos : Int32
+}
+
+///|
+fn Stamp::new(src : StringView) -> Stamp {
+  { src, pos: 0, }
+}
+
+///|
+fn Stamp::done(self : Stamp) -> Bool {
+  self.pos >= self.src.length()
+}
+
+///|
+fn Stamp::at(self : Stamp, u : Int32) -> Bool {
+  !self.done() && self.src[self.pos].to_int() == u
+}
+
+///|
+/// Consume the character at the cursor if it is `u`.
+fn Stamp::take(self : Stamp, u : Int32) -> Bool {
+  if self.at(u) {
+    self.pos = self.pos + 1
+    true
+  } else {
+    false
+  }
+}
+
+///|
+/// One to `most` decimal digits at the cursor, as the number they spell.
+fn Stamp::number(
+  self : Stamp,
+  least : Int32,
+  most : Int32,
+) -> Result[Int32, Int32] {
+  let start = self.pos
+  let mut value = 0
+  while !self.done() &&
+        self.pos - start < most &&
+        ascii_digit(self.src[self.pos].to_int()) {
+    value = value * 10 + (self.src[self.pos].to_int() - 0x30)
+    self.pos = self.pos + 1
+  }
+  if self.pos - start < least {
+    Err(start)
+  } else {
+    Ok(value)
+  }
+}
+
+///|
+/// A field as it is written in the ISO 8601 form: zero-padded to `width` digits.
+fn padded(out : StringBuilder, value : Int32, width : Int32) -> Unit {
+  let mut scale = 1
+  for _ in 1..<width {
+    scale = scale * 10
+  }
+  let mut step = scale
+  while step > 1 {
+    out.write_char((value / step % 10 + 0x30).unsafe_to_char())
+    step = step / 10
+  }
+  out.write_char((value % 10 + 0x30).unsafe_to_char())
+}
+
+///|
+/// How many days the month of a year has, which is the one thing about a date that a
+/// reader of it has to know beyond the digits.
+fn days_in(year : Int32, month : Int32) -> Int32 {
+  match month {
+    1 | 3 | 5 | 7 | 8 | 10 | 12 => 31
+    4 | 6 | 9 | 11 => 30
+    _ =>
+      // A year divisible by four is a leap year, except a century, except one
+      // divisible by four hundred.
+      if year % 4 == 0 && (year % 100 != 0 || year % 400 == 0) {
+        29
+      } else {
+        28
+      }
+  }
+}
+
+///|
+/// The point in time a `!!timestamp` names, written the ISO 8601 way.
+///
+/// The tree this library produces holds JSON values and JSON has no date, so the
+/// value of a timestamp is its text: the fields zero-padded, the fraction without the
+/// trailing zeros that carry no meaning, and the zone as `Z` or as an offset, so that
+/// two spellings of one moment read the same. The calendar is checked as it is read,
+/// and a date that never happened is a fault rather than a value.
+///
+/// The spellings are the ones yaml.org/type/timestamp.html lists: `2001-12-15T02:59:43.1Z`,
+/// `2001-12-14t21:59:43.10-05:00`, `2001-12-14 21:59:43.10 -5`, and a bare
+/// `2002-12-14`. The offset is kept rather than applied: a value that cannot say
+/// which zone it was written in would be a different value after the conversion.
+fn timestamp_of(text : StringView) -> Result[String, Int32] {
+  let stamp = Stamp::new(text)
+  let year = match stamp.number(4, 4) {
+    Ok(value) => value
+    Err(off) => return Err(off)
+  }
+  if !stamp.take(0x2d) {
+    return Err(stamp.pos)
+  }
+  let month_at = stamp.pos
+  let month = match stamp.number(1, 2) {
+    Ok(value) => value
+    Err(off) => return Err(off)
+  }
+  if !stamp.take(0x2d) {
+    return Err(stamp.pos)
+  }
+  let day_at = stamp.pos
+  let day = match stamp.number(1, 2) {
+    Ok(value) => value
+    Err(off) => return Err(off)
+  }
+  if year < 1 {
+    return Err(0)
+  }
+  if month < 1 || month > 12 {
+    return Err(month_at)
+  }
+  if day < 1 || day > days_in(year, month) {
+    return Err(day_at)
+  }
+  let out = StringBuilder()
+  padded(out, year, 4)
+  out.write_char('-')
+  padded(out, month, 2)
+  out.write_char('-')
+  padded(out, day, 2)
+  if stamp.done() {
+    return Ok(out.to_string())
+  }
+  // A `T`, a `t`, or one or more blanks separate the date from the time.
+  if stamp.at(0x54) || stamp.at(0x74) {
+    stamp.pos = stamp.pos + 1
+  } else if stamp.at(0x20) || stamp.at(0x09) {
+    while stamp.at(0x20) || stamp.at(0x09) {
+      stamp.pos = stamp.pos + 1
+    }
+  } else {
+    return Err(stamp.pos)
+  }
+  let hour_at = stamp.pos
+  let hour = match stamp.number(1, 2) {
+    Ok(value) => value
+    Err(off) => return Err(off)
+  }
+  if !stamp.take(0x3a) {
+    return Err(stamp.pos)
+  }
+  let minute_at = stamp.pos
+  let minute = match stamp.number(2, 2) {
+    Ok(value) => value
+    Err(off) => return Err(off)
+  }
+  if !stamp.take(0x3a) {
+    return Err(stamp.pos)
+  }
+  let second_at = stamp.pos
+  let second = match stamp.number(2, 2) {
+    Ok(value) => value
+    Err(off) => return Err(off)
+  }
+  if hour > 23 {
+    return Err(hour_at)
+  }
+  if minute > 59 {
+    return Err(minute_at)
+  }
+  if second > 59 {
+    return Err(second_at)
+  }
+  out.write_char('T')
+  padded(out, hour, 2)
+  out.write_char(':')
+  padded(out, minute, 2)
+  out.write_char(':')
+  padded(out, second, 2)
+  if stamp.take(0x2e) {
+    let start = stamp.pos
+    while !stamp.done() && ascii_digit(stamp.src[stamp.pos].to_int()) {
+      stamp.pos = stamp.pos + 1
+    }
+    let mut end = stamp.pos
+    while end > start && stamp.src[end - 1].to_int() == 0x30 {
+      end = end - 1
+    }
+    if end > start {
+      out.write_char('.')
+      out.write_string(stamp.src[start:end].to_owned())
+    }
+  }
+  while stamp.at(0x20) || stamp.at(0x09) {
+    stamp.pos = stamp.pos + 1
+  }
+  if stamp.take(0x5a) {
+    out.write_char('Z')
+  } else if stamp.at(0x2b) || stamp.at(0x2d) {
+    let negative = stamp.at(0x2d)
+    stamp.pos = stamp.pos + 1
+    let zone_at = stamp.pos
+    let hours = match stamp.number(1, 2) {
+      Ok(value) => value
+      Err(off) => return Err(off)
+    }
+    let mut minutes = 0
+    if stamp.take(0x3a) {
+      minutes = match stamp.number(2, 2) {
+        Ok(value) => value
+        Err(off) => return Err(off)
+      }
+    }
+    if hours > 23 || minutes > 59 {
+      return Err(zone_at)
+    }
+    if hours == 0 && minutes == 0 {
+      // An offset of nothing is UTC whatever sign it was written with, and `Z` is
+      // how ISO 8601 writes it.
+      out.write_char('Z')
+    } else {
+      out.write_char(if negative { '-' } else { '+' })
+      padded(out, hours, 2)
+      out.write_char(':')
+      padded(out, minutes, 2)
+    }
+  }
+  if !stamp.done() {
+    return Err(stamp.pos)
+  }
+  Ok(out.to_string())
 }
 
 ///|

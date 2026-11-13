@@ -218,6 +218,14 @@ pub(all) struct Rules {
   /// Every scalar is a string, whatever it looks like — StrictYAML's first rule,
   /// and the reason a StrictYAML document never surprises a reader.
   strings : Bool
+  /// NEL (`U+0085`), LS (`U+2028`) and PS (`U+2029`) end a line: 1.1 read all three
+  /// of the line breaks Unicode defines, and 1.2 narrowed one to a line feed or a
+  /// carriage return (§5.4 of each).
+  breaks : Bool
+  /// A scalar tagged `!!timestamp` is read as the point in time it names (1.1 §10.3).
+  /// A tree of JSON values has no date type, so the value is the text in ISO 8601
+  /// order rather than a date.
+  timestamp : Bool
 }
 
 ///|
@@ -238,6 +246,8 @@ pub let core_rules : Rules = {
   sexagesimal: false,
   dots: false,
   strings: false,
+  breaks: false,
+  timestamp: false,
 }
 
 ///|
@@ -252,6 +262,8 @@ pub let legacy_rules : Rules = {
   sexagesimal: true,
   dots: true,
   strings: false,
+  breaks: true,
+  timestamp: true,
 }
 
 ///|
