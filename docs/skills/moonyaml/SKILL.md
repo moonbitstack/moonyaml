@@ -135,4 +135,13 @@ test {
   broken file from an unsupported one.
 - `<<` is a merge key only in `yaml11`; in the root package it is an ordinary key
   named `<<`, as 1.2 has it.
+- `yaml11` ends a line at NEL, LS and PS as well as at a line feed, which is what
+  1.1 §5.4 says a break is. The root package does not: there the three are
+  characters, so a file whose lines end in NEL is one long line and probably a
+  fault. If a file came from a mainframe or a word processor, read it with
+  `yaml11`.
+- `!!timestamp` is a type in `yaml11` and not in 1.2. It resolves to the text of
+  the point in time in ISO 8601 order — `2001-12-14 21:59:43.10 -5` becomes
+  `2001-12-14T21:59:43.1-05:00` — and refuses a date the calendar does not have.
+  An untagged date stays the string it is in every version.
 - `load` takes bytes, decodes UTF-8 and skips a leading BOM; `loads` takes text.

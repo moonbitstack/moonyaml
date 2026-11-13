@@ -545,6 +545,8 @@
   sexagesimal : Bool
   dots : Bool
   strings : Bool
+  breaks : Bool
+  timestamp : Bool
 }</code></pre>
 <div class="prose"><p>What a YAML version resolves an unquoted scalar to.</p>
 <p>The three released versions disagree with each other, and the disagreements are all here rather than in the scanner: 1.1 reads <code>yes</code> as a boolean, <code>014</code> as twelve and <code>1:30</code> as ninety, 1.2 reads all three as strings, and StrictYAML reads every scalar as a string whatever it looks like. A version is a set of rules over one reader, which is why this library has one parser and not four.</p>
@@ -580,6 +582,14 @@
 <div class="field">
 <code class="name">strings : Bool</code>
 <div class="prose"><p>Every scalar is a string, whatever it looks like — StrictYAML's first rule, and the reason a StrictYAML document never surprises a reader.</p></div>
+</div>
+<div class="field">
+<code class="name">breaks : Bool</code>
+<div class="prose"><p>NEL (<code>U+0085</code>), LS (<code>U+2028</code>) and PS (<code>U+2029</code>) end a line: 1.1 read all three of the line breaks Unicode defines, and 1.2 narrowed one to a line feed or a carriage return (§5.4 of each).</p></div>
+</div>
+<div class="field">
+<code class="name">timestamp : Bool</code>
+<div class="prose"><p>A scalar tagged <code>!!timestamp</code> is read as the point in time it names (1.1 §10.3). A tree of JSON values has no date type, so the value is the text in ISO 8601 order rather than a date.</p></div>
 </div>
 </div>
 <div class="item" id="rules-equal">

@@ -129,6 +129,51 @@ test {
 }
 ```
 
+1.1 differs in two more places, both of them older than the long words. A line may
+end with NEL (`U+0085`), LS (`U+2028`) or PS (`U+2029`), which §5.4 of that version
+calls line breaks — a file written on a mainframe or saved by a word processor is a
+file and not one long line. A generic break — a line feed, a carriage return, a NEL
+— is normalised to a line feed as it folds; LS and PS are content, and folding
+leaves them alone. 1.2 narrowed a break to the first two, so there the three are
+characters like any other.
+
+```moonbit
+test {
+  let src = "a: 1\u{85}b: 2\u{85}"
+  assert_eq(@yaml11.loads(src).stringify(), "{\"a\":1,\"b\":2}")
+  // 1.2 has no such break: one line, and a second colon on it is a fault.
+  assert_eq(
+    try {
+      @moonyaml.loads(src) |> ignore
+      "read"
+    } catch {
+      e => e.to_string()
+    },
+    "1:7: unexpected ':'",
+  )
+}
+```
+
+The other is `!!timestamp`. 1.2's core schema has no such type, so a date is the
+text it is; `yaml11` has one, and reads the point in time the tag names — checking
+the calendar, and handing back the text in ISO 8601 order, because a tree of JSON
+values has no date in it. A scalar that merely *looks* like a date is still a
+string: a value that changes shape by accident is the thing this library exists to
+avoid.
+
+```moonbit
+test {
+  assert_eq(
+    @yaml11.loads("at: !!timestamp 2001-12-14 21:59:43.10 -5\n").stringify(),
+    "{\"at\":\"2001-12-14T21:59:43.1-05:00\"}",
+  )
+  assert_eq(
+    @yaml11.loads("at: !!timestamp 2002-12-14\n").stringify(),
+    "{\"at\":\"2002-12-14\"}",
+  )
+}
+```
+
 ## The document
 
 `parse` gives back a `Node`: a `kind`, the `text` a scalar was written as, the
@@ -333,15 +378,39 @@ purpose.
 
 Two readings differ from some implementations, on purpose:
 
-- A scalar shaped like a timestamp is a string. The core schema of 1.2 has no
-  timestamp type, so `2024-01-01` is the text it is; a reader that keeps 1.1's
-  timestamp resolver hands back a date.
+- A scalar shaped like a timestamp is a string until a tag says otherwise: the core
+  schema of 1.2 has no timestamp type, so `2024-01-01` is the text it is, and a
+  reader that keeps 1.1's timestamp resolver hands back a date without being asked.
+  `!!timestamp` is how a document asks, and 1.1's answer is the text of the point in
+  time rather than a date this library has no type for.
 - A lone `y`, `Y`, `n` or `N` is a string, in `yaml11` as well. YAML 1.1's type
   repository lists the four as booleans, and one of the two implementations
   checked here reads them that way; the C implementation the others are built on
   reads them as strings, as this library does, because a lone `n` in a
   configuration file is far more often a name than a no. `yaml10` is where the
   four are booleans.
+- A bare `1e3` written for 1.1 is a string: that version wants a dot in a float's
+  mantissa. One of the two implementations writes the value as `1e3` anyway, so
+  the corpus declares that case rather than comparing it.
+- A bare NEL inside a single-quoted scalar is a line break in 1.1, and folds to a
+  space; one of the two implementations writes it there and expects the character
+  back. libyaml escapes it, and both legs agree. The declaration is for that one
+  writer only. A bare LS or PS used to be a declared divergence with libyaml; now
+  that this reader ends a 1.1 line at those characters, both legs agree and the
+  declaration is gone.
+
+Four corpus cases are declared rather than compared — `string-y`, `string-n`,
+`string-exponent` and `string-nel`, the last three readings above — and the check
+refuses a stale declaration: a partner that starts agreeing is an error, not a
+quiet improvement.
+
+Neither of the two 1.1 behaviours above is in the suite, which is written for 1.2,
+so both are held against a second implementation instead: eighteen documents whose
+lines end in NEL, LS or PS and twenty-three spellings of a point in time, each
+compared with what that implementation reads the same text as, including the dates
+a calendar does not have. The vectors are generated from it by a script in
+`scripts/`, which CI reruns and compares, so the data cannot drift away from the
+implementation it was taken from.
 
 ## Examples
 

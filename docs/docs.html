@@ -46,6 +46,7 @@
         <a href="#reading">Reading a value</a>
         <a href="#streams">Streams and files</a>
         <a href="#versions">The five versions</a>
+        <a href="#legacy">Two things only 1.1 does</a>
         <a href="#strict">The strict dialect</a>
         <a href="#documents">The document tree</a>
         <a href="#writing">Writing a document back</a>
@@ -233,6 +234,53 @@ assert_eq(
             the 2000s — and say so in the module that reads it.
           </p>
         </div>
+
+        <h2 id="legacy">Two things only 1.1 does</h2>
+        <p>
+          1.1 is not only a different set of words for booleans and numbers. It ends
+          a line in more places, and it has a type that 1.2 dropped. Both still turn
+          up in files written when 1.1 was the current version.
+        </p>
+        <p>
+          <b>Line breaks.</b> Unicode names five characters that end a line, and
+          §5.4 of 1.1 reads all five; 1.2 reads the first two. A document saved by a
+          word processor — or written where the newline is NEL — is therefore a
+          document in <code>yaml11</code> and one long line in
+          <code>moonyaml</code>:
+        </p>
+        <pre><code><span class="k">let</span> text = <span class="s">"a: 1\u{85}b: 2\u{85}"</span>
+assert_eq(@yaml11.loads(text).stringify(), <span class="s">"{\"a\":1,\"b\":2}"</span>)
+<span class="c">// 1.2, the same bytes: one line, and the second colon on it is a fault.
+// 1:7: unexpected ':'</span></code></pre>
+        <p>
+          A generic break — a line feed, a carriage return, a NEL — is folded the
+          way a line feed is. LS and PS are what the specification calls specific
+          breaks: they are content. Folding leaves them alone, and a literal block
+          hands them back as they were written.
+        </p>
+        <p>
+          <b>Timestamps.</b> <code>!!timestamp</code> names a point in time. Its
+          value here is the text of that point in ISO 8601 order, because this
+          library's tree is made of JSON values and JSON has no date in it: the
+          calendar is checked, the fields are padded, and two spellings of one
+          moment agree.
+        </p>
+        <pre><code>assert_eq(
+  @yaml11.loads(<span class="s">"at: !!timestamp 2001-12-14 21:59:43.10 -5\n"</span>).stringify(),
+  <span class="s">"{\"at\":\"2001-12-14T21:59:43.1-05:00\"}"</span>,
+)
+assert_eq(
+  @yaml11.loads(<span class="s">"at: !!timestamp 2002-12-14\n"</span>).stringify(),
+  <span class="s">"{\"at\":\"2002-12-14\"}"</span>,
+)
+<span class="c">// A date that never happened is refused where it stops being one:
+// 1:25: unexpected '3'</span></code></pre>
+        <p>
+          A scalar that merely looks like a date stays the string it is unless a tag
+          says otherwise. Guessing would change a value's shape behind the caller's
+          back, which is the one thing this reader does not do. 1.2 has no timestamp
+          type at all, so there <code>!!timestamp</code> leaves the text alone.
+        </p>
 
         <h2 id="strict">The strict dialect</h2>
         <p>
