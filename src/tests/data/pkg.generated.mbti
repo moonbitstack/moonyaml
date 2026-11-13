@@ -6,6 +6,8 @@ import {
 }
 
 // Values
+pub let breaks : Array[(String, String)]
+
 pub let cases : Array[Case]
 
 pub fn expected(String) -> @json.Json?
@@ -15,6 +17,8 @@ pub fn same(@json.Json, @json.Json) -> Bool
 pub fn same_events(String, String) -> String?
 
 pub fn shape(@json.Json) -> @json.Json
+
+pub let timestamps : Array[(String, String?)]
 
 // Errors
 
