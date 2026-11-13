@@ -25,3 +25,7 @@ keywords = [
 ]
 
 description = "YAML 1.0, 1.1 and 1.2 for MoonBit."
+
+import {
+  "moonbitstack/moonjson@0.5.0",
+}

@@ -556,7 +556,7 @@ fn tally(counts : Map[String, Int32], value : Json) -> Unit {
   match value {
     Array(items) =>
       if items.length() > 0 {
-        let k = value.stringify()
+        let k = @moonjson.dumps(value)
         counts[k] = match counts.get(k) {
           Some(n) => n + 1
           None => 1
@@ -567,7 +567,7 @@ fn tally(counts : Map[String, Int32], value : Json) -> Unit {
       }
     Object(members) =>
       if members.length() > 0 {
-        let k = value.stringify()
+        let k = @moonjson.dumps(value)
         counts[k] = match counts.get(k) {
           Some(n) => n + 1
           None => 1
@@ -588,7 +588,7 @@ fn Out::anchor(self : Out, value : Json) -> String {
   if !style.anchors {
     return ""
   }
-  let k = value.stringify()
+  let k = @moonjson.dumps(value)
   let repeats = match self.counts.get(k) {
     Some(n) => n > 1
     None => false

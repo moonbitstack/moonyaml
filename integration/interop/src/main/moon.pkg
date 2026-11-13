@@ -4,9 +4,9 @@
 // still compiles it.
 import {
   "moonbitlang/core/env",
-  "moonbitlang/core/json",
   "moonbitlang/x/fs",
   "moonbitstack/moonyaml",
+  "moonbitstack/moonjson",
   "moonbitstack/moonyaml/yaml11",
 }
 

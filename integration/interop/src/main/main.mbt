@@ -119,7 +119,7 @@ fn read_all(directory : String, report : String, lane : Lane) -> Unit {
       ("errors", Json::object(Map(errors))),
     ]),
   )
-  write_text(report, report_.stringify(indent=2) + "\n")
+  write_text(report, @moonjson.dumps(report_, indent=2) + "\n")
   println(
     "interop: read \{values.length()} documents with \{lane.name()} rules, \{errors.length()} refused",
   )
@@ -185,9 +185,9 @@ fn list_dir(path : String) -> Array[String] {
 /// wider than a double has to survive being written, and a reader that kept only
 /// the double would report a disagreement that is its own fault.
 fn parse_json(text : String, what : String) -> Json {
-  @json.parse(text, preserve_number_repr=true) catch {
+  @moonjson.loads(text, @moonjson.strict) catch {
     e => {
-      println("interop: \{what} is not JSON: \{Json(e).stringify()}")
+      println("interop: \{what} is not JSON: \{e.message()}")
       @env.exit(2)
     }
   }

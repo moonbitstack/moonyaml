@@ -6,5 +6,6 @@ source = "src"
 
 import {
   "moonbitlang/x@0.5.7",
-  "moonbitstack/moonyaml@0.1.6",
+  "moonbitstack/moonyaml@0.1.7",
+  "moonbitstack/moonjson@0.5.0",
 }

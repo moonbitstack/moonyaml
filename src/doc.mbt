@@ -2040,7 +2040,7 @@ fn key_string(value : Json) -> String {
     True => "true"
     False => "false"
     Null => "null"
-    _ => value.stringify()
+    _ => @moonjson.dumps(value)
   }
 }
 

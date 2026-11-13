@@ -9,4 +9,5 @@ import {
   "moonbitlang/core/double",
   "moonbitlang/core/json",
   "moonbitlang/core/string",
+  "moonbitstack/moonjson",
 }
