@@ -38,10 +38,20 @@ form of the test:
   driven by libyaml — reads them as strings, which is what this library does.
   The case says `contested`, and the check requires that the declared partner
   really does disagree, so the claim cannot quietly stop being true.
+* the string `a<NEL>b` under 1.1, with ruamel: its 1.1 dumper puts a bare NEL
+  inside a single-quoted scalar, but §5.4 of 1.1 makes NEL a generic line break
+  that a reader normalises to a line feed, so here it folds to a space. libyaml
+  escapes the character, and both legs agree with it. The case says `contested`
+  for ruamel only.
+
+A bare LS or PS used to be contested with libyaml for the same reason. Now that
+this reader ends a 1.1 line at those characters too, both legs agree. A stale
+`contested` declaration fails the check, so ours were removed rather than left
+to overstate the divergence.
 
 A scalar shaped like a timestamp is left out of the corpus: this library has no
-timestamp type to hand back, both partners resolve one to a date, and the
-divergence is written down in the README instead.
+date type to hand back, both partners resolve one to a date, and the divergence
+is written down in the README instead.
 
     python scripts/check_interop.py [--keep]
 

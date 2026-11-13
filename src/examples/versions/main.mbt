@@ -48,6 +48,18 @@ fn main {
   each("any, %YAML 1.2", "%YAML 1.2\n---\nenabled: yes\nmask: 014\n", text => {
     @any.loads(text)
   })
+
+  // Two things only 1.1 has. A line may end at NEL (`U+0085`), which 1.2 reads as a
+  // character in the middle of a scalar, and a scalar may be tagged as a point in
+  // time, which 1.2 has no type for.
+  println("")
+  println("and two things 1.1 has that 1.2 does not:")
+  let nel = "a: 1\u{85}b: 2\u{85}"
+  each("1.2.2, a line ended by NEL", nel, text => @moonyaml.loads(text))
+  each("1.1, a line ended by NEL", nel, text => @yaml11.loads(text))
+  let stamped = "when: !!timestamp 2001-12-15 02:59:43\n"
+  each("1.2.2, !!timestamp", stamped, text => @moonyaml.loads(text))
+  each("1.1, !!timestamp", stamped, text => @yaml11.loads(text))
 }
 
 ///|

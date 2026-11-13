@@ -338,16 +338,16 @@
   },
   {
     "id": "string-nel",
-    "value": "ab"
+    "value": "ab",
+    "contested": {
+      "1.1": [
+        "ruamel.yaml"
+      ]
+    }
   },
   {
     "id": "string-line-separator",
-    "value": "a b",
-    "contested": {
-      "1.1": [
-        "libyaml"
-      ]
-    }
+    "value": "a b"
   },
   {
     "id": "string-bell",
@@ -987,11 +987,6 @@
   },
   {
     "id": "string-paragraph-separator",
-    "value": "a b",
-    "contested": {
-      "1.1": [
-        "libyaml"
-      ]
-    }
+    "value": "a b"
   }
 ]
