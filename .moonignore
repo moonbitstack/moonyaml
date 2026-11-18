@@ -17,3 +17,6 @@ tools/
 # are for the check in CI; a caller downloads the library, not a test rig.
 integration/
 moon.work
+
+# Examples are read in the repository and run in CI; they do not ship.
+src/examples/
