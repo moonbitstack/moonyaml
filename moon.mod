@@ -1,6 +1,6 @@
 name = "moonbitstack/moonyaml"
 
-version = "0.2.0"
+version = "0.2.1"
 
 readme = "README.md"
 
@@ -27,5 +27,5 @@ keywords = [
 description = "YAML 1.0, 1.1 and 1.2 for MoonBit."
 
 import {
-  "moonbitstack/moonjson@0.5.0",
+  "moonbitstack/moonjson@0.5.1",
 }
